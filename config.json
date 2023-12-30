@@ -1,0 +1,15 @@
+{
+  "configuration": {
+    "port": 389
+  },
+  "users": [
+    {
+      "password": "test1",
+      "attributes": {
+        "userPrincipalName": "test.user@gmail.invalid"
+      }
+    }
+  ],
+  "groups": [
+  ]
+}
