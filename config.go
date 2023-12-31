@@ -12,6 +12,8 @@ type Configuration struct {
 }
 
 type User struct {
+	Upn      string `json:"upn"`
+	Password string `json:"password"`
 }
 
 type AppConfig struct {

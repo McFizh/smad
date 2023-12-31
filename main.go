@@ -1,10 +1,11 @@
 package main
 
 import (
-	"encoding/hex"
 	"fmt"
 	"io"
 	"net"
+	"slices"
+	"strings"
 
 	ber "github.com/go-asn1-ber/asn1-ber"
 )
@@ -31,11 +32,11 @@ func main() {
 			continue
 		}
 
-		go handleConnection(conn)
+		go handleConnection(conn, appConfig)
 	}
 }
 
-func handleConnection(conn net.Conn) {
+func handleConnection(conn net.Conn, appConfig AppConfig) {
 	request := make([]byte, 1024)
 
 	fmt.Println("Waiting for data")
@@ -59,7 +60,7 @@ func handleConnection(conn net.Conn) {
 
 			if p.Children[1].ClassType == ber.ClassApplication && p.Children[1].Tag == 0 {
 				// Bind request
-				parseBind(conn, p.Children[1])
+				parseBind(conn, p.Children[1], msgNum, appConfig.Users)
 			} else if p.Children[1].ClassType == ber.ClassApplication && p.Children[1].Tag == 2 {
 				// Unbind request
 				conn.Close()
@@ -76,32 +77,56 @@ func handleConnection(conn net.Conn) {
 
 }
 
-func parseBind(conn net.Conn, p *ber.Packet) {
+func parseBind(conn net.Conn, p *ber.Packet, msgNum uint8, users []User) {
 	if len(p.Children) != 3 {
 		fmt.Println("Unsupported bind package")
 		return
 	}
 
-	// version := uint8(p.Children[0].ByteValue[0])
-	// user := p.Children[1].Value
-	// password := p.Children[2].Value
+	version := uint8(p.Children[0].ByteValue[0])
+	if version != 3 {
+		fmt.Printf("Unknown version %d\n", version)
+		return
+	}
 
+	// Real AD does not trim value, but search is case insensitive so convert given value to lowercase
+	user := fmt.Sprintf("%v", p.Children[1].Value)
+	user = strings.ToLower(user)
+	password := fmt.Sprintf("%v", p.Children[2].Data)
+
+	// TODO
+	// if len(password) == 0 {
+	// This should return bind succesful message, but with error message in the actual search result
+	//}
+
+	// See if we can find the user
+	userRecordIdx := slices.IndexFunc(users, func(c User) bool { return strings.ToLower(c.Upn) == user })
+
+	statusCode := 0
+	dn := ""
+	msg := ""
+
+	if userRecordIdx < 0 || users[userRecordIdx].Password != password {
+		// User not found
+		statusCode = 49
+		msg = "80090308: LdapErr: DSID-0C090569, comment: AcceptSecurityContext error, data 52e, v4563"
+	}
+
+	// This part of the response is always the same
 	rsp := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "")
+	msgNumPacket := ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, msgNum, "")
+	rsp.AppendChild(msgNumPacket)
 
-	msgNumPacket := ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, 1, "")
-
-	codePacket := ber.NewInteger(ber.ClassApplication, ber.TypePrimitive, ber.TagEnumerated, 49, "")
-	dnPacket := ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "")
-	msgPacket := ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "80090308: LdapErr: DSID-0C090569, comment: AcceptSecurityContext error, data 52e, v4563", "")
 	bindRspPacket := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ber.TagBoolean, nil, "")
+
+	codePacket := ber.NewInteger(ber.ClassApplication, ber.TypePrimitive, ber.TagEnumerated, statusCode, "")
 	bindRspPacket.AppendChild(codePacket)
+	dnPacket := ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, dn, "")
 	bindRspPacket.AppendChild(dnPacket)
+	msgPacket := ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, msg, "")
 	bindRspPacket.AppendChild(msgPacket)
 
-	rsp.AppendChild(msgNumPacket)
+	// Finally transmit the response to client
 	rsp.AppendChild(bindRspPacket)
-
-	str := hex.EncodeToString(rsp.Bytes())
-	fmt.Println(str)
 	conn.Write(rsp.Bytes())
 }
