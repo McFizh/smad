@@ -59,12 +59,15 @@ func handleConnection(conn net.Conn, appConfig AppConfig) {
 			fmt.Printf("Message number %d, tag id: %d\n", msgNum, p.Children[1].Tag)
 
 			if p.Children[1].ClassType == ber.ClassApplication && p.Children[1].Tag == 0 {
-				// Bind request
-				parseBind(conn, p.Children[1], msgNum, appConfig.Users)
+				// Bind request OP
+				handleBindRequest(conn, p.Children[1], msgNum, appConfig.Users)
 			} else if p.Children[1].ClassType == ber.ClassApplication && p.Children[1].Tag == 2 {
-				// Unbind request
+				// Unbind request OP
 				conn.Close()
 				return
+			} else if p.Children[1].ClassType == ber.ClassApplication && p.Children[1].Tag == 3 {
+				// Search request OP
+				handleSearchRequest(conn, p.Children[1], msgNum)
 			} else {
 				ber.PrintPacket(p.Children[1])
 			}
@@ -77,7 +80,27 @@ func handleConnection(conn net.Conn, appConfig AppConfig) {
 
 }
 
-func parseBind(conn net.Conn, p *ber.Packet, msgNum uint8, users []User) {
+func handleSearchRequest(conn net.Conn, p *ber.Packet, msgNum uint8) {
+	rsp := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "")
+
+	msgNumPacket := ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, msgNum, "")
+	rsp.AppendChild(msgNumPacket)
+
+	// Create end of search result packet
+	searchRspPacket := ber.Encode(ber.ClassApplication, ber.TypeConstructed, 0x05, nil, "")
+	codePacket := ber.NewInteger(ber.ClassApplication, ber.TypePrimitive, ber.TagEnumerated, 0, "")
+	searchRspPacket.AppendChild(codePacket)
+	dnPacket := ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "")
+	searchRspPacket.AppendChild(dnPacket)
+	msgPacket := ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "")
+	searchRspPacket.AppendChild(msgPacket)
+
+	// Finally transmit the response to client
+	rsp.AppendChild(searchRspPacket)
+	conn.Write(rsp.Bytes())
+}
+
+func handleBindRequest(conn net.Conn, p *ber.Packet, msgNum uint8, users []User) {
 	if len(p.Children) != 3 {
 		fmt.Println("Unsupported bind package")
 		return
@@ -114,10 +137,11 @@ func parseBind(conn net.Conn, p *ber.Packet, msgNum uint8, users []User) {
 
 	// This part of the response is always the same
 	rsp := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "")
+
 	msgNumPacket := ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, msgNum, "")
 	rsp.AppendChild(msgNumPacket)
 
-	bindRspPacket := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ber.TagBoolean, nil, "")
+	bindRspPacket := ber.Encode(ber.ClassApplication, ber.TypeConstructed, 0x01, nil, "")
 
 	codePacket := ber.NewInteger(ber.ClassApplication, ber.TypePrimitive, ber.TagEnumerated, statusCode, "")
 	bindRspPacket.AppendChild(codePacket)
@@ -126,7 +150,8 @@ func parseBind(conn net.Conn, p *ber.Packet, msgNum uint8, users []User) {
 	msgPacket := ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, msg, "")
 	bindRspPacket.AppendChild(msgPacket)
 
-	// Finally transmit the response to client
 	rsp.AppendChild(bindRspPacket)
+
+	// Finally transmit the response to client
 	conn.Write(rsp.Bytes())
 }

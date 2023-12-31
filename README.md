@@ -17,6 +17,18 @@ Todo:
 - Support for groups (at least so that user record indicated groups that user is in)
 - (Maybe) implement support for ldaps
 
+## Configuration file
+
+File consists of 3 parts:
+
+- Configuration
+  - The actual application spesific configuration
+- Users
+  - List of users known to app.
+  - 'upn' and 'password' attributes are used as bind username/passwords
+- Groups
+  - List of groups in system. Not implemented yet
+
 ## Running project locally
 
 Make sure you have at least go 1.21 installed. Modify config.json file to suit your needs, then:
