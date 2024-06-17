@@ -1,6 +1,8 @@
 {
   "configuration": {
-    "port": 389
+    "port": 389,
+    "crtFile": "",
+    "keyFile": ""
   },
   "users": [
     {

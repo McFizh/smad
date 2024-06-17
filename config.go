@@ -8,7 +8,9 @@ import (
 )
 
 type Configuration struct {
-	Port int `json:"port"`
+	Port    int    `json:"port"`
+	CrtFile string `json:"crtFile"`
+	KeyFile string `json:"keyFile"`
 }
 
 type User struct {
