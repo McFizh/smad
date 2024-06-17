@@ -35,6 +35,16 @@ If "crtFile" and "keyFile" attributes are set in the configuration, then the ser
 
 Note: port for ldaps is usually 636 so remember to change that also.
 
+To generate key and cert, use the following commands:
+
+`openssl genrsa -out server.key 2048`
+
+`openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650`
+
+If you get the following error to logs: 'tls: bad record MAC', remember to allow self signed certificates in the ldap tool for example in ldapsearch:
+
+`LDAPTLS_REQCERT=ALLOW ldapsearch -H ldaps://localhost:636 ...`
+
 ## Running project locally
 
 Make sure you have latest go (1.22 when writing this) installed. Copy config.example.json to config.json and modify it to suit your needs, then:
@@ -43,7 +53,7 @@ Make sure you have latest go (1.22 when writing this) installed. Copy config.exa
 
 ## Running project with docker
 
-Copy config.example.json to config.json (or just mount your own config file, when running container).
+By default the provided dockerfile will copy config.example.json file to container as config.json file. So remember to mount your own config.json file instead of the example file.
 
 Built docker image:
 

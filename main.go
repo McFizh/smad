@@ -1,8 +1,10 @@
 package main
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"slices"
 	"strings"
@@ -14,21 +16,39 @@ func main() {
 	appConfig := readConfig()
 
 	port := fmt.Sprintf(":%d", appConfig.Configuration.Port)
-	listener, err := net.Listen("tcp", port)
+
+	var err error
+	var listener net.Listener
+
+	if appConfig.Configuration.UseSSL {
+		var cert tls.Certificate
+		cert, err = tls.LoadX509KeyPair(appConfig.Configuration.CrtFile, appConfig.Configuration.KeyFile)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		config := &tls.Config{Certificates: []tls.Certificate{cert}}
+		listener, err = tls.Listen("tcp", port, config)
+	} else {
+		listener, err = net.Listen("tcp", port)
+	}
 
 	if err != nil {
-		fmt.Printf("Failed to listen to port %d..\n", appConfig.Configuration.Port)
-		fmt.Println(err)
-		return
+		log.Printf("Failed to listen to port %d..\n", appConfig.Configuration.Port)
+		log.Fatalln(err)
 	}
 	defer listener.Close()
 
-	fmt.Printf("Listening for connections on port %d\n", appConfig.Configuration.Port)
+	connType := "connections"
+	if appConfig.Configuration.UseSSL {
+		connType = "SSL-connections"
+	}
+	log.Printf("Listening for %s on port %d\n", connType, appConfig.Configuration.Port)
 
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			fmt.Println("Failed to accept connection", err)
+			log.Println("Failed to accept connection", err)
 			continue
 		}
 
@@ -40,13 +60,13 @@ func handleConnection(conn net.Conn, appConfig AppConfig) {
 	request := make([]byte, 1024)
 	bindSuccessful := false
 
-	fmt.Println("Waiting for data")
+	log.Println("New connection, waiting for data...")
 	for {
 		_, err := conn.Read(request)
 
 		if err != nil {
 			if err != io.EOF {
-				fmt.Println("Failed to read request", err)
+				log.Println("Failed to read request", err)
 			}
 			conn.Close()
 			return
@@ -57,7 +77,7 @@ func handleConnection(conn net.Conn, appConfig AppConfig) {
 		if len(p.Children) == 2 {
 			msgNum := uint8(p.Children[0].ByteValue[0])
 
-			fmt.Printf("Message number %d, tag id: %d\n", msgNum, p.Children[1].Tag)
+			log.Printf("Message number %d, tag id: %d\n", msgNum, p.Children[1].Tag)
 
 			if p.Children[1].ClassType == ber.ClassApplication && p.Children[1].Tag == 0 {
 				// Bind request OP
@@ -72,13 +92,10 @@ func handleConnection(conn net.Conn, appConfig AppConfig) {
 			} else {
 				ber.PrintPacket(p.Children[1])
 			}
-
 		} else {
-			fmt.Println("Unknown packet")
+			log.Println("Unknown packet")
 		}
-
 	}
-
 }
 
 func createResponsePacket(msgNum uint8) *ber.Packet {
@@ -89,6 +106,11 @@ func createResponsePacket(msgNum uint8) *ber.Packet {
 }
 
 func handleSearchRequest(conn net.Conn, p *ber.Packet, msgNum uint8, bindSuccessful bool) {
+	if len(p.Children) < 6 {
+		log.Println("Unsupported search package")
+		return
+	}
+
 	rsp := createResponsePacket(msgNum)
 	statusCode := 0
 	errorMessage := ""
@@ -114,13 +136,13 @@ func handleSearchRequest(conn net.Conn, p *ber.Packet, msgNum uint8, bindSuccess
 
 func handleBindRequest(conn net.Conn, p *ber.Packet, msgNum uint8, users []User) bool {
 	if len(p.Children) != 3 {
-		fmt.Println("Unsupported bind package")
+		log.Println("Unsupported bind package")
 		return false
 	}
 
 	version := uint8(p.Children[0].ByteValue[0])
 	if version != 3 {
-		fmt.Printf("Unknown version %d\n", version)
+		log.Printf("Unknown version %d\n", version)
 		return false
 	}
 
