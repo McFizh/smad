@@ -7,7 +7,7 @@ It does not and will not support most (99%) of the features that the real system
 Feature list:
 
 - Support for simple ldap authentication: userPrincipalName (email) + password
-  - Users (with passwords, and attributes) are listed in config.json file
+  - Users (with passwords, and attributes) are listed in users.json file
 - Relatively easy to configure
 - Lightweight (fast startup + small memory footprint)
 - SSL support
@@ -17,16 +17,16 @@ Todo:
 - Implement simple ldap query mechanism to get user by UPN attribute
 - Support for groups (at least so that user record indicated groups that user is in)
 
-## Configuration file
+## Configuration files
 
-File consists of 3 parts:
+Application requires 3 configuration files to work (copy from example files, and modify if needed):
 
-- Configuration
+- config.json
   - The actual application spesific configuration
-- Users
+- users.json
   - List of users known to app.
   - 'upn' and 'password' attributes are used as bind username/passwords
-- Groups
+- groups.json
   - List of groups in system. Not implemented yet
 
 ## SSL support
@@ -47,7 +47,7 @@ If you get the following error to logs: 'tls: bad record MAC', remember to allow
 
 ## Running project locally
 
-Make sure you have latest go (1.22 when writing this) installed. Copy config.example.json to config.json and modify it to suit your needs, then:
+Make sure you have latest go (1.23 when writing this) installed. Copy config.example.json to config.json and modify it to suit your needs, then:
 
 `go run *.go`
 

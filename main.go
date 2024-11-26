@@ -44,6 +44,7 @@ func main() {
 		connType = "SSL-connections"
 	}
 	log.Printf("Listening for %s on port %d\n", connType, appConfig.Configuration.Port)
+	log.Printf("Database contains %d user(s) and %d group(s)\n", len(appConfig.Users), len(appConfig.Groups))
 
 	for {
 		conn, err := listener.Accept()

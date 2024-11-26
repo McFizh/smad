@@ -1,3 +1,5 @@
 server.key
 server.crt
 config.json
+users.json
+groups.json

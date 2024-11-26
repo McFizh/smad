@@ -1,0 +1,7 @@
+{
+  "port": 389,
+  "crtFile": "",
+  "keyFile": "",
+  "userFile": "users.json",
+  "groupFile": "groups.json"
+}

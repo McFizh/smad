@@ -8,10 +8,12 @@ import (
 )
 
 type Configuration struct {
-	UseSSL  bool
-	Port    int    `json:"port"`
-	CrtFile string `json:"crtFile"`
-	KeyFile string `json:"keyFile"`
+	UseSSL    bool
+	Port      int    `json:"port"`
+	CrtFile   string `json:"crtFile"`
+	KeyFile   string `json:"keyFile"`
+	UserFile  string `json:"userFile"`
+	GroupFile string `json:"groupFile"`
 }
 
 type User struct {
@@ -19,9 +21,13 @@ type User struct {
 	Password string `json:"password"`
 }
 
+type Group struct {
+}
+
 type AppConfig struct {
-	Configuration Configuration `json:"configuration"`
-	Users         []User        `json:"users"`
+	Configuration Configuration
+	Users         []User
+	Groups        []Group
 }
 
 func fileExists(filename string) bool {
@@ -30,6 +36,31 @@ func fileExists(filename string) bool {
 		return false
 	}
 	return !info.IsDir()
+}
+
+func readUsersAndGroups(config *AppConfig) {
+	if config.Configuration.UserFile == "" || !fileExists(config.Configuration.UserFile) {
+		log.Fatalln("'userFile' not set in config.json or file not found")
+	}
+	if config.Configuration.GroupFile == "" || !fileExists(config.Configuration.GroupFile) {
+		log.Fatalln("'groupFile' not set in config.json or file not found")
+	}
+
+	fs1, err := os.Open(config.Configuration.UserFile)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	defer fs1.Close()
+	content1, _ := io.ReadAll(fs1)
+	json.Unmarshal(content1, &config.Users)
+
+	fs2, err := os.Open(config.Configuration.GroupFile)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	defer fs2.Close()
+	content2, _ := io.ReadAll(fs2)
+	json.Unmarshal(content2, &config.Groups)
 }
 
 func readConfig() AppConfig {
@@ -45,7 +76,7 @@ func readConfig() AppConfig {
 
 	content, _ := io.ReadAll(fs)
 	var config AppConfig
-	json.Unmarshal(content, &config)
+	json.Unmarshal(content, &config.Configuration)
 
 	// Set default value, if port value is not set or invalid
 	if config.Configuration.Port <= 0 {
@@ -64,6 +95,9 @@ func readConfig() AppConfig {
 
 		config.Configuration.UseSSL = true
 	}
+
+	// Finally read in users and groups
+	readUsersAndGroups(&config)
 
 	return config
 }
