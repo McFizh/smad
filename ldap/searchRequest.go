@@ -11,7 +11,7 @@ import (
 	ber "github.com/go-asn1-ber/asn1-ber"
 )
 
-func finalizeAndSendPkg(conn net.Conn, rsp *ber.Packet, statusCode int, errorMessage string) {
+func addEndOfSearchPkg(rsp *ber.Packet, statusCode int, errorMessage string) {
 	// Create end of search result packet
 	searchRspPacket := ber.Encode(ber.ClassApplication, ber.TypeConstructed, 0x05, nil, "")
 	codePacket := ber.NewInteger(ber.ClassApplication, ber.TypePrimitive, ber.TagEnumerated, statusCode, "")
@@ -20,10 +20,18 @@ func finalizeAndSendPkg(conn net.Conn, rsp *ber.Packet, statusCode int, errorMes
 	searchRspPacket.AppendChild(dnPacket)
 	msgPacket := ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, errorMessage, "")
 	searchRspPacket.AppendChild(msgPacket)
-
-	// Finally transmit the response to client
 	rsp.AppendChild(searchRspPacket)
-	conn.Write(rsp.Bytes())
+}
+
+func createObjectName(domain string, prefix string) string {
+	objName := prefix
+
+	domainParts := strings.Split(domain, ".")
+	for _, part := range domainParts {
+		objName += ",DC=" + part
+	}
+
+	return objName
 }
 
 func testDomain(baseObject string, domain string) uint8 {
@@ -58,16 +66,54 @@ func testDomain(baseObject string, domain string) uint8 {
 	return 0
 }
 
+func createAttributePkg(p *ber.Packet, attrType string, values []string) {
+	attrPkg := ber.NewSequence("")
+
+	typePkg := ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, attrType, "")
+	attrPkg.AppendChild(typePkg)
+
+	valuesPkg := ber.NewSequence("")
+	for _, val := range values {
+		valPkg := ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, val, "")
+		valuesPkg.AppendChild(valPkg)
+	}
+	attrPkg.AppendChild(valuesPkg)
+
+	p.AppendChild(attrPkg)
+}
+
+func createSearchResEntry(p *ber.Packet, domain string, objtype string) {
+	searchResEntry := ber.Encode(ber.ClassApplication, ber.TypeConstructed, 0x04, nil, "")
+
+	objectName := createObjectName(domain, "CN=Users")
+	msgPacket := ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, objectName, "")
+	searchResEntry.AppendChild(msgPacket)
+
+	attrPacket := ber.NewSequence("")
+
+	// Create objectClass package
+	if objtype == "user" {
+		createAttributePkg(attrPacket, "objectClass", []string{"top", "person", "organizationalPerson", objtype})
+	} else {
+		createAttributePkg(attrPacket, "objectClass", []string{"top", objtype})
+	}
+
+	// Attach attributes to response
+	searchResEntry.AppendChild(attrPacket)
+	p.AppendChild(searchResEntry)
+}
+
 func HandleSearchRequest(conn net.Conn, p *ber.Packet, msgNum uint8, bindSuccessful bool, config models.AppConfig) {
 	if len(p.Children) < 6 {
 		log.Println("Unsupported search package")
 		return
 	}
 
-	rsp := createResponsePacket(msgNum)
+	eosp := createResponsePacket(msgNum)
 
 	if !bindSuccessful {
-		finalizeAndSendPkg(conn, rsp, 1, "000004DC: LdapErr: DSID-0C090CF4, comment: In order to perform this operation a successful bind must be completed on the connection., data 0, v4563")
+		addEndOfSearchPkg(eosp, 1, "000004DC: LdapErr: DSID-0C090CF4, comment: In order to perform this operation a successful bind must be completed on the connection., data 0, v4563")
+		conn.Write(eosp.Bytes())
 		return
 	}
 
@@ -75,11 +121,26 @@ func HandleSearchRequest(conn net.Conn, p *ber.Packet, msgNum uint8, bindSuccess
 	tval := testDomain(fmt.Sprintf("%v", p.Children[0].Value), config.Configuration.Domain)
 	if tval > 0 {
 		if tval == 1 {
-			finalizeAndSendPkg(conn, rsp, 10, "0000202B: RefErr: DSID-0310084A, data 0, 1 access points")
+			addEndOfSearchPkg(eosp, 10, "0000202B: RefErr: DSID-0310084A, data 0, 1 access points")
 		} else {
-			finalizeAndSendPkg(conn, rsp, 32, "0000208D: NameErr: DSID-0310028C, problem 2001 (NO_OBJECT), data 0, best match of:")
+			addEndOfSearchPkg(eosp, 32, "0000208D: NameErr: DSID-0310028C, problem 2001 (NO_OBJECT), data 0, best match of:")
 		}
+		conn.Write(eosp.Bytes())
 		return
+	}
+
+	// Add groups
+	for range config.Groups {
+		rspX := createResponsePacket(msgNum)
+		createSearchResEntry(rspX, config.Configuration.Domain, "group")
+		conn.Write(rspX.Bytes())
+	}
+
+	// Add users
+	for range config.Users {
+		rspX := createResponsePacket(msgNum)
+		createSearchResEntry(rspX, config.Configuration.Domain, "user")
+		conn.Write(rspX.Bytes())
 	}
 
 	/*
@@ -94,8 +155,8 @@ func HandleSearchRequest(conn net.Conn, p *ber.Packet, msgNum uint8, bindSuccess
 		typesOnly := p.Children[5].Value
 		filters := p.Children[6]
 
-		ber.PrintPacket(p)
 	*/
 
-	finalizeAndSendPkg(conn, rsp, 0, "")
+	addEndOfSearchPkg(eosp, 0, "")
+	conn.Write(eosp.Bytes())
 }
