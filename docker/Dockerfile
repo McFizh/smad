@@ -10,8 +10,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o smad
 FROM alpine:3.20
 WORKDIR /app
 COPY --from=builder /app/smad /app/
-COPY config.json.example /app/config.json
-COPY users.json.example /app/users.json
-COPY groups.json.example /app/groups.json
+COPY configs/config.json.example /app/configs/config.json
+COPY configs/users.json.example /app/configs/users.json
+COPY configs/groups.json.example /app/configs/groups.json
 
 ENTRYPOINT ["./smad"]

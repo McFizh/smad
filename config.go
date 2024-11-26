@@ -5,30 +5,8 @@ import (
 	"io"
 	"log"
 	"os"
+	"smad/models"
 )
-
-type Configuration struct {
-	UseSSL    bool
-	Port      int    `json:"port"`
-	CrtFile   string `json:"crtFile"`
-	KeyFile   string `json:"keyFile"`
-	UserFile  string `json:"userFile"`
-	GroupFile string `json:"groupFile"`
-}
-
-type User struct {
-	Upn      string `json:"upn"`
-	Password string `json:"password"`
-}
-
-type Group struct {
-}
-
-type AppConfig struct {
-	Configuration Configuration
-	Users         []User
-	Groups        []Group
-}
 
 func fileExists(filename string) bool {
 	info, err := os.Stat(filename)
@@ -38,7 +16,7 @@ func fileExists(filename string) bool {
 	return !info.IsDir()
 }
 
-func readUsersAndGroups(config *AppConfig) {
+func readUsersAndGroups(config *models.AppConfig) {
 	if config.Configuration.UserFile == "" || !fileExists(config.Configuration.UserFile) {
 		log.Fatalln("'userFile' not set in config.json or file not found")
 	}
@@ -63,8 +41,8 @@ func readUsersAndGroups(config *AppConfig) {
 	json.Unmarshal(content2, &config.Groups)
 }
 
-func readConfig() AppConfig {
-	fs, err := os.Open("config.json")
+func readConfig() models.AppConfig {
+	fs, err := os.Open("configs/config.json")
 	if err != nil {
 		if os.IsNotExist(err) {
 			log.Fatalln("Missing config.json configuration file")
@@ -75,7 +53,7 @@ func readConfig() AppConfig {
 	defer fs.Close()
 
 	content, _ := io.ReadAll(fs)
-	var config AppConfig
+	var config models.AppConfig
 	json.Unmarshal(content, &config.Configuration)
 
 	// Set default value, if port value is not set or invalid

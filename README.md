@@ -6,28 +6,39 @@ It does not and will not support most (99%) of the features that the real system
 
 Feature list:
 
-- Support for simple ldap authentication: userPrincipalName (email) + password
-  - Users (with passwords, and attributes) are listed in users.json file
-- Relatively easy to configure
 - Lightweight (fast startup + small memory footprint)
+- Support for simple ldap authentication: userPrincipalName (email) + password
+- Domain validation in baseDN
 - SSL support
 
 Todo:
 
-- Implement simple ldap query mechanism to get user by UPN attribute
-- Support for groups (at least so that user record indicated groups that user is in)
+- Support for listing data (users + groups) and implement basic filtering mechanism to ldap query
 
 ## Configuration files
 
-Application requires 3 configuration files to work (copy from example files, and modify if needed):
+Application requires 3 configuration files (in configs folder) to work. Location and name of config.json is hardcoded, but the user and group configuration files can be renamed/relocated. Project contains example configuration files.
 
 - config.json
   - The actual application spesific configuration
 - users.json
-  - List of users known to app.
+  - List of users known to app and groups they belong to
   - 'upn' and 'password' attributes are used as bind username/passwords
 - groups.json
-  - List of groups in system. Not implemented yet
+  - List of groups in system.
+
+## User configuration
+
+User object consists of 4 attributes:
+
+- upn
+  - "userPrincipalName" .. email address that user can authenticate with, also shown in user attributes
+- password
+  - Plaintext password for user (so don't store any actual secrets here)
+- groups
+  - List of groups the user belongs to (case sensitive, must be found in groups.json)
+- attributes
+  - Extra attributes to add to search result for users, like: countryCode, givenName .. Do not add upn manually here
 
 ## SSL support
 

@@ -1,0 +1,8 @@
+{
+  "port": 389,
+  "crtFile": "",
+  "keyFile": "",
+  "userFile": "configs/users.json",
+  "groupFile": "configs/groups.json",
+  "domain": "example.com"
+}
