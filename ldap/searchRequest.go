@@ -23,8 +23,8 @@ func addEndOfSearchPkg(rsp *ber.Packet, statusCode int, errorMessage string) {
 	rsp.AppendChild(searchRspPacket)
 }
 
-func createObjectName(domain string, prefix string) string {
-	objName := prefix
+func createObjectName(cn string, prefix string, domain string) string {
+	objName := "CN=" + cn + "," + prefix
 
 	domainParts := strings.Split(domain, ".")
 	for _, part := range domainParts {
@@ -55,9 +55,8 @@ func testDomain(baseObject string, domain string) uint8 {
 		if dIdx >= len(domainParts) || part[3:] != domainParts[dIdx] {
 			if dIdx < 2 {
 				return 1
-			} else {
-				return 2
 			}
+			return 2
 		}
 
 		dIdx++
@@ -82,10 +81,9 @@ func createAttributePkg(p *ber.Packet, attrType string, values []string) {
 	p.AppendChild(attrPkg)
 }
 
-func createSearchResEntry(p *ber.Packet, domain string, objtype string) {
+func createSearchResEntry(p *ber.Packet, objectName string, objtype string, attributes map[string]string) {
 	searchResEntry := ber.Encode(ber.ClassApplication, ber.TypeConstructed, 0x04, nil, "")
 
-	objectName := createObjectName(domain, "CN=Users")
 	msgPacket := ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, objectName, "")
 	searchResEntry.AppendChild(msgPacket)
 
@@ -96,6 +94,11 @@ func createSearchResEntry(p *ber.Packet, domain string, objtype string) {
 		createAttributePkg(attrPacket, "objectClass", []string{"top", "person", "organizationalPerson", objtype})
 	} else {
 		createAttributePkg(attrPacket, "objectClass", []string{"top", objtype})
+	}
+
+	// Add custom attributes to attribute package
+	for key, value := range attributes {
+		createAttributePkg(attrPacket, key, []string{value})
 	}
 
 	// Attach attributes to response
@@ -130,16 +133,19 @@ func HandleSearchRequest(conn net.Conn, p *ber.Packet, msgNum uint8, bindSuccess
 	}
 
 	// Add groups
-	for range config.Groups {
+	for _, group := range config.Groups {
 		rspX := createResponsePacket(msgNum)
-		createSearchResEntry(rspX, config.Configuration.Domain, "group")
+		attrs := map[string]string{"name": group.Name}
+		objectName := createObjectName(group.Name, "CN=Users", config.Configuration.Domain)
+		createSearchResEntry(rspX, objectName, "group", attrs)
 		conn.Write(rspX.Bytes())
 	}
 
 	// Add users
-	for range config.Users {
+	for _, user := range config.Users {
 		rspX := createResponsePacket(msgNum)
-		createSearchResEntry(rspX, config.Configuration.Domain, "user")
+		objectName := createObjectName("", "CN=Users", config.Configuration.Domain)
+		createSearchResEntry(rspX, objectName, "user", user.Attributes)
 		conn.Write(rspX.Bytes())
 	}
 

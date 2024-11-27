@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"slices"
 	"smad/models"
 )
 
@@ -39,6 +40,29 @@ func readUsersAndGroups(config *models.AppConfig) {
 	defer fs2.Close()
 	content2, _ := io.ReadAll(fs2)
 	json.Unmarshal(content2, &config.Groups)
+}
+
+// Goes through user records and adds userPrincipalName attribute,
+// also makes sure that group record contains only valid groups
+func processUsers(users *[]models.User, groups *[]models.Group) {
+	// Make sure all groups exist that user is ment to belong to
+	for _, user := range *users {
+
+		var newGroups []string
+		for _, group := range user.Groups {
+			if len(group) == 0 {
+				continue
+			}
+
+			groupIdx := slices.IndexFunc(*groups, func(c models.Group) bool { return c.Name == group })
+			if groupIdx >= 0 {
+				newGroups = append(newGroups, group)
+			}
+		}
+
+		user.Attributes["userPrincipalName"] = user.Upn
+		user.Groups = newGroups
+	}
 }
 
 func readConfig() models.AppConfig {
@@ -76,6 +100,7 @@ func readConfig() models.AppConfig {
 
 	// Finally read in users and groups
 	readUsersAndGroups(&config)
+	processUsers(&config.Users, &config.Groups)
 
 	return config
 }
