@@ -4,6 +4,8 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY *.go ./
+COPY models/*.go ./models/
+COPY ldap/*.go ./ldap/
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o smad
 
