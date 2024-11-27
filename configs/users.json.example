@@ -2,9 +2,11 @@
   {
     "upn": "test.user@gmail.invalid",
     "password": "test1",
+    "cn": "Test User",
     "attributes": {
-      "sn": "user",
-      "givenName": "test"
+      "givenName": "Test",
+      "sn": "User",
+      "displayName": "Test User"
     },
     "groups": [ "TestGroup" ]
   }

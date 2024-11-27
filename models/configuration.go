@@ -13,12 +13,13 @@ type Configuration struct {
 type User struct {
 	Upn        string            `json:"upn"`
 	Password   string            `json:"password"`
+	Cn         string            `json:"cn"`
 	Attributes map[string]string `json:"attributes"`
 	Groups     []string          `json:"groups"`
 }
 
 type Group struct {
-	Name string `json:"name"`
+	Cn string `json:"cn"`
 }
 
 type AppConfig struct {

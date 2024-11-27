@@ -81,7 +81,7 @@ func createAttributePkg(p *ber.Packet, attrType string, values []string) {
 	p.AppendChild(attrPkg)
 }
 
-func createSearchResEntry(p *ber.Packet, objectName string, objtype string, attributes map[string]string) {
+func createSearchResEntry(objectName string, objtype string, attributes map[string]string) (*ber.Packet, *ber.Packet) {
 	searchResEntry := ber.Encode(ber.ClassApplication, ber.TypeConstructed, 0x04, nil, "")
 
 	msgPacket := ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, objectName, "")
@@ -101,9 +101,7 @@ func createSearchResEntry(p *ber.Packet, objectName string, objtype string, attr
 		createAttributePkg(attrPacket, key, []string{value})
 	}
 
-	// Attach attributes to response
-	searchResEntry.AppendChild(attrPacket)
-	p.AppendChild(searchResEntry)
+	return attrPacket, searchResEntry
 }
 
 func HandleSearchRequest(conn net.Conn, p *ber.Packet, msgNum uint8, bindSuccessful bool, config models.AppConfig) {
@@ -135,17 +133,42 @@ func HandleSearchRequest(conn net.Conn, p *ber.Packet, msgNum uint8, bindSuccess
 	// Add groups
 	for _, group := range config.Groups {
 		rspX := createResponsePacket(msgNum)
-		attrs := map[string]string{"name": group.Name}
-		objectName := createObjectName(group.Name, "CN=Users", config.Configuration.Domain)
-		createSearchResEntry(rspX, objectName, "group", attrs)
+		attrs := map[string]string{"name": group.Cn}
+		objectName := createObjectName(group.Cn, "CN=Users", config.Configuration.Domain)
+		attrPkg, sREPkg := createSearchResEntry(objectName, "group", attrs)
+
+		// Add CN
+		createAttributePkg(attrPkg, "cn", []string{group.Cn})
+
+		// Attach attributes to response, and finally send the response package
+		sREPkg.AppendChild(attrPkg)
+		rspX.AppendChild(sREPkg)
 		conn.Write(rspX.Bytes())
 	}
 
 	// Add users
 	for _, user := range config.Users {
 		rspX := createResponsePacket(msgNum)
-		objectName := createObjectName("", "CN=Users", config.Configuration.Domain)
-		createSearchResEntry(rspX, objectName, "user", user.Attributes)
+		objectName := createObjectName(user.Cn, "CN=Users", config.Configuration.Domain)
+		attrPkg, sREPkg := createSearchResEntry(objectName, "user", user.Attributes)
+
+		// Add CN
+		createAttributePkg(attrPkg, "cn", []string{user.Cn})
+
+		// Add memberof packages
+		var groups []string
+		for _, ug := range user.Groups {
+			groupName := createObjectName(ug, "CN=Users", config.Configuration.Domain)
+			groups = append(groups, groupName)
+		}
+
+		if len(groups) > 0 {
+			createAttributePkg(attrPkg, "memberOf", groups)
+		}
+
+		// Attach attributes to response, and finally send the response package
+		sREPkg.AppendChild(attrPkg)
+		rspX.AppendChild(sREPkg)
 		conn.Write(rspX.Bytes())
 	}
 

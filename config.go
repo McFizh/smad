@@ -54,13 +54,14 @@ func processUsers(users *[]models.User, groups *[]models.Group) {
 				continue
 			}
 
-			groupIdx := slices.IndexFunc(*groups, func(c models.Group) bool { return c.Name == group })
+			groupIdx := slices.IndexFunc(*groups, func(c models.Group) bool { return c.Cn == group })
 			if groupIdx >= 0 {
 				newGroups = append(newGroups, group)
 			}
 		}
 
 		user.Attributes["userPrincipalName"] = user.Upn
+		user.Attributes["name"] = user.Cn
 		user.Groups = newGroups
 	}
 }

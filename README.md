@@ -1,3 +1,5 @@
+[![Quality gate](https://sonarcloud.io/api/project_badges/quality_gate?project=McFizh_smad)](https://sonarcloud.io/summary/new_code?id=McFizh_smad)
+
 # SMAD - Simple Mock Active Directory
 
 This is an attempt of building lightweight mock container that can be used in development stack instead of active directory.
@@ -8,12 +10,13 @@ Feature list:
 
 - Lightweight (fast startup + small memory footprint)
 - Support for simple ldap authentication: userPrincipalName (email) + password
+- Support for listing users and groups (no filtering) on ldap search
 - Domain validation in baseDN
 - SSL support
 
 Todo:
 
-- Support for listing data (users + groups) and implement basic filtering mechanism to ldap query
+- Implement basic filtering mechanism to ldap query
 
 ## Configuration files
 
@@ -35,10 +38,17 @@ User object consists of 4 attributes:
   - "userPrincipalName" .. email address that user can authenticate with, also shown in user attributes
 - password
   - Plaintext password for user (so don't store any actual secrets here)
+- cn
+  - "Common name" identifier for user object (also appears as name in attributes field)
 - groups
   - List of groups the user belongs to (case sensitive, must be found in groups.json)
 - attributes
-  - Extra attributes to add to search result for users, like: countryCode, givenName .. Do not add upn manually here
+  - Extra attributes to add to search result for users, like: countryCode, givenName .. Do not add upn/name attributes manually here
+
+## Group configuration
+
+- cn
+  - "Common name" identifier for group object (also appears as name in attributes field)
 
 ## SSL support
 
@@ -73,3 +83,13 @@ Built docker image:
 Run image (note. using port number below 389 requires root privileges, so feel free to use some other port number):
 
 `docker run --rm -p 389:389 smad:latest`
+
+## LDAP queries
+
+System currently supports the following search case(s):
+
+- listing of data (groups and users):
+
+  `ldapsearch -H ldap://localhost -x -W -o ldif-wrap=no -D "example@example.com" -b "dc=example,dc=com"`
+
+Note: You must set the domain correctly (=match base dc) in config.json, otherwise the search returns nothing.
