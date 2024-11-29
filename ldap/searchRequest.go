@@ -14,7 +14,7 @@ import (
 func addEndOfSearchPkg(rsp *ber.Packet, statusCode int, errorMessage string) {
 	// Create end of search result packet
 	searchRspPacket := ber.Encode(ber.ClassApplication, ber.TypeConstructed, 0x05, nil, "")
-	codePacket := ber.NewInteger(ber.ClassApplication, ber.TypePrimitive, ber.TagEnumerated, statusCode, "")
+	codePacket := ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagEnumerated, statusCode, "")
 	searchRspPacket.AppendChild(codePacket)
 	dnPacket := ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "")
 	searchRspPacket.AppendChild(dnPacket)
@@ -71,7 +71,7 @@ func createAttributePkg(p *ber.Packet, attrType string, values []string) {
 	typePkg := ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, attrType, "")
 	attrPkg.AppendChild(typePkg)
 
-	valuesPkg := ber.NewSequence("")
+	valuesPkg := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSet, nil, "")
 	for _, val := range values {
 		valPkg := ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, val, "")
 		valuesPkg.AppendChild(valPkg)
