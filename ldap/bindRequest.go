@@ -53,7 +53,7 @@ func HandleBindRequest(conn net.Conn, p *ber.Packet, msgNum uint8, users []model
 
 	bindRspPacket := ber.Encode(ber.ClassApplication, ber.TypeConstructed, 0x01, nil, "")
 
-	codePacket := ber.NewInteger(ber.ClassApplication, ber.TypePrimitive, ber.TagEnumerated, statusCode, "")
+	codePacket := ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagEnumerated, statusCode, "")
 	bindRspPacket.AppendChild(codePacket)
 	dnPacket := ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "")
 	bindRspPacket.AppendChild(dnPacket)
