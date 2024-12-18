@@ -11,6 +11,7 @@ import (
 	"net"
 
 	ber "github.com/go-asn1-ber/asn1-ber"
+	"github.com/google/uuid"
 )
 
 func main() {
@@ -61,8 +62,9 @@ func main() {
 func handleConnection(conn net.Conn, appConfig models.AppConfig) {
 	request := make([]byte, 1024)
 	bindSuccessful := false
+	connectId, _ := uuid.NewRandom()
 
-	log.Println("New connection, waiting for data...")
+	log.Printf("CID: %s, new connection, waiting for data.\n", connectId)
 	for {
 		_, err := conn.Read(request)
 
@@ -79,7 +81,7 @@ func handleConnection(conn net.Conn, appConfig models.AppConfig) {
 		if len(p.Children) == 2 {
 			msgNum := uint8(p.Children[0].ByteValue[0])
 
-			log.Printf("Message number %d, tag id: %d\n", msgNum, p.Children[1].Tag)
+			log.Printf("CID: %s, message number %d, tag id: %d\n", connectId, msgNum, p.Children[1].Tag)
 
 			if p.Children[1].ClassType == ber.ClassApplication && p.Children[1].Tag == 0 {
 				// Bind request OP
@@ -87,7 +89,7 @@ func handleConnection(conn net.Conn, appConfig models.AppConfig) {
 			} else if p.Children[1].ClassType == ber.ClassApplication && p.Children[1].Tag == 2 {
 				// Unbind request OP
 				conn.Close()
-				return
+				break
 			} else if p.Children[1].ClassType == ber.ClassApplication && p.Children[1].Tag == 3 {
 				// Search request OP
 				ldap.HandleSearchRequest(conn, p.Children[1], msgNum, bindSuccessful, appConfig)
@@ -98,4 +100,6 @@ func handleConnection(conn net.Conn, appConfig models.AppConfig) {
 			log.Println("Unknown packet")
 		}
 	}
+
+	log.Printf("CID: %s, connection closed.\n", connectId)
 }
