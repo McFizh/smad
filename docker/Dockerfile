@@ -1,4 +1,4 @@
-FROM golang:1.23 AS builder
+FROM golang:1.25 AS builder
 
 WORKDIR /app
 COPY go.mod go.sum ./
@@ -9,7 +9,7 @@ COPY ldap/*.go ./ldap/
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o smad
 
-FROM alpine:3.20
+FROM alpine:3.22
 WORKDIR /app
 COPY --from=builder /app/smad /app/
 COPY configs/config.json.example /app/configs/config.json
