@@ -1,5 +1,5 @@
 {
-  "port": 389,
+  "port": 1389,
   "crtFile": "",
   "keyFile": "",
   "userFile": "configs/users.json",

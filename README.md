@@ -54,7 +54,7 @@ User object consists of 4 attributes:
 
 If "crtFile" and "keyFile" attributes are set in the configuration, then the server will use SSL encryption (ldaps).
 
-Note: port for ldaps is usually 636 so remember to change that also.
+Note: port for ldaps is usually 636, so remember to take this into account. App itself doesn't care on which port it listens on, SSL mode is enabled if both key and crt file are present.
 
 To generate key and cert, use the following commands:
 
@@ -68,7 +68,7 @@ If you get the following error to logs: 'tls: bad record MAC', remember to allow
 
 ## Running project locally
 
-Make sure you have latest go (1.23 when writing this) installed. Copy config.example.json to config.json and modify it to suit your needs, then:
+Make sure you have latest go (1.24 when writing this) installed. Copy config.example.json to config.json and modify it to suit your needs, then:
 
 `go run *.go`
 
@@ -80,9 +80,9 @@ Built docker image:
 
 `docker build -t smad:latest -f docker/Dockerfile .`
 
-Run image (note. using port number below 389 requires root privileges, so feel free to use some other port number):
+Run image. Note that using port number below 1024 requires root privileges, and since this container doesn't use root user, the port is by default set to 1389:
 
-`docker run --rm -p 389:389 smad:latest`
+`docker run --rm -p 389:1389 smad:latest`
 
 ## LDAP queries
 
