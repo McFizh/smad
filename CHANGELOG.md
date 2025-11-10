@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.3] - 2025-11-10
+
+- Change ownership of config files to smadusr, so that files are easier to replace
+
+## [0.1.2] - 2025-11-10
+
+- Expose default port, so that gitlab handles the container better
+
 ## [0.1.1] - 2025-11-10
 
 - Update base alpine image
