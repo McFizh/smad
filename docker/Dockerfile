@@ -11,6 +11,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o smad
 
 FROM alpine:3.22
 WORKDIR /app
+RUN apk update && apk upgrade
 RUN addgroup -S smadgrp && adduser -S smadusr -G smadgrp
 COPY --from=builder /app/smad /app/
 COPY configs/config.json.example /app/configs/config.json

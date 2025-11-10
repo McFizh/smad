@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.1.1] - 2025-11-10
+
+- Update base alpine image
+
 ## [0.1.0] - 2025-09-08
 
 - Updated go version from 1.23 to 1.25
