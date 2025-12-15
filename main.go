@@ -1,17 +1,10 @@
 package main
 
 import (
-	"smad/ldap"
-	"smad/models"
-
 	"crypto/tls"
 	"fmt"
-	"io"
 	"log"
 	"net"
-
-	ber "github.com/go-asn1-ber/asn1-ber"
-	"github.com/google/uuid"
 )
 
 func main() {
@@ -57,49 +50,4 @@ func main() {
 
 		go handleConnection(conn, appConfig)
 	}
-}
-
-func handleConnection(conn net.Conn, appConfig models.AppConfig) {
-	request := make([]byte, 1024)
-	bindSuccessful := false
-	connectId, _ := uuid.NewRandom()
-
-	log.Printf("CID: %s, new connection, waiting for data.\n", connectId)
-	for {
-		_, err := conn.Read(request)
-
-		if err != nil {
-			if err != io.EOF {
-				log.Println("Failed to read request", err)
-			}
-			conn.Close()
-			return
-		}
-
-		p := ber.DecodePacket(request)
-
-		if len(p.Children) == 2 {
-			msgNum := uint8(p.Children[0].ByteValue[0])
-
-			log.Printf("CID: %s, message number %d, tag id: %d\n", connectId, msgNum, p.Children[1].Tag)
-
-			if p.Children[1].ClassType == ber.ClassApplication && p.Children[1].Tag == 0 {
-				// Bind request OP
-				bindSuccessful = ldap.HandleBindRequest(conn, p.Children[1], msgNum, appConfig.Users)
-			} else if p.Children[1].ClassType == ber.ClassApplication && p.Children[1].Tag == 2 {
-				// Unbind request OP
-				conn.Close()
-				break
-			} else if p.Children[1].ClassType == ber.ClassApplication && p.Children[1].Tag == 3 {
-				// Search request OP
-				ldap.HandleSearchRequest(conn, p.Children[1], msgNum, bindSuccessful, appConfig)
-			} else {
-				ber.PrintPacket(p.Children[1])
-			}
-		} else {
-			log.Println("Unknown packet")
-		}
-	}
-
-	log.Printf("CID: %s, connection closed.\n", connectId)
 }

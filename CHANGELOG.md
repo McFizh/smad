@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.1.4] - 202x-xx-xx
+
+- Made log messages bit easier to read
+- Added initial support for deleting users and groups
+
 ## [0.1.3] - 2025-11-10
 
 - Change ownership of config files to smadusr, so that files are easier to replace
