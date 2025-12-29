@@ -1,9 +1,13 @@
 # Changelog
 
-## [0.1.4] - 202x-xx-xx
+## [0.1.4] - 2025-12-29
 
 - Made log messages bit easier to read
-- Added initial support for deleting users and groups
+- Fixed wrong group in dockerfile
+- Switch to alpine 3.23 base image
+- Added some initial unit tests
+- Added support for disabled users
+- Added 'userAccountControl' attribute to user record, indicating status flags: disabled / password never expires
 
 ## [0.1.3] - 2025-11-10
 

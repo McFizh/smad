@@ -2,6 +2,8 @@
   {
     "upn": "test.user@gmail.invalid",
     "password": "test1",
+    "passwordNeverExpire": true,
+    "accountDisabled": false,
     "cn": "Test User",
     "attributes": {
       "givenName": "Test",

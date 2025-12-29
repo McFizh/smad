@@ -46,8 +46,7 @@ func readUsersAndGroups(config *models.AppConfig) {
 // also makes sure that group record contains only valid groups
 func processUsers(users *[]models.User, groups *[]models.Group) {
 	// Make sure all groups exist that user is ment to belong to
-	for _, user := range *users {
-
+	for idx, user := range *users {
 		var newGroups []string
 		for _, group := range user.Groups {
 			if len(group) == 0 {
@@ -59,10 +58,22 @@ func processUsers(users *[]models.User, groups *[]models.Group) {
 				newGroups = append(newGroups, group)
 			}
 		}
+		(*users)[idx].Groups = newGroups
 
-		user.Attributes["userPrincipalName"] = user.Upn
-		user.Attributes["name"] = user.Cn
-		user.Groups = newGroups
+		// Add calculated attributes
+		(*users)[idx].Attributes["userPrincipalName"] = user.Upn
+		(*users)[idx].Attributes["name"] = user.Cn
+
+		// Calc userAccountControl value (512 = normal account bit)
+		(*users)[idx].UserAccountControl = 512
+
+		if user.Disabled {
+			(*users)[idx].UserAccountControl += 2
+		}
+
+		if user.PasswordNeverExpire {
+			(*users)[idx].UserAccountControl += 65536
+		}
 	}
 }
 

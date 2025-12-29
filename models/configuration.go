@@ -10,12 +10,23 @@ type Configuration struct {
 	Domain    string `json:"domain"`
 }
 
+type LdapElement struct {
+	Cn                 string
+	Attributes         map[string]string
+	MemberOf           []string
+	ObjectClass        []string
+	UserAccountControl int
+}
+
 type User struct {
-	Upn        string            `json:"upn"`
-	Password   string            `json:"password"`
-	Cn         string            `json:"cn"`
-	Attributes map[string]string `json:"attributes"`
-	Groups     []string          `json:"groups"`
+	Cn                  string            `json:"cn"`
+	Upn                 string            `json:"upn"`
+	Password            string            `json:"password"`
+	PasswordNeverExpire bool              `json:"passwordNeverExpire"`
+	Disabled            bool              `json:"accountDisabled"`
+	Attributes          map[string]string `json:"attributes"`
+	Groups              []string          `json:"groups"`
+	UserAccountControl  int
 }
 
 type Group struct {

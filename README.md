@@ -90,6 +90,6 @@ System currently supports the following search case(s):
 
 - listing of data (groups and users):
 
-  `ldapsearch -H ldap://localhost -x -W -o ldif-wrap=no -D "example@example.com" -b "dc=example,dc=com"`
+  `ldapsearch -H ldap://localhost:1389 -x -W -o ldif-wrap=no -D "test.user@gmail.invalid" -b "dc=example,dc=com"`
 
 Note: You must set the domain correctly (=match base dc) in config.json, otherwise the search returns nothing.

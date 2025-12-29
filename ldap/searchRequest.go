@@ -6,6 +6,7 @@ import (
 	"net"
 	"slices"
 	"smad/models"
+	"strconv"
 	"strings"
 
 	ber "github.com/go-asn1-ber/asn1-ber"
@@ -81,7 +82,7 @@ func createAttributePkg(p *ber.Packet, attrType string, values []string) {
 	p.AppendChild(attrPkg)
 }
 
-func createSearchResEntry(objectName string, objtype string, attributes map[string]string) (*ber.Packet, *ber.Packet) {
+func createSearchResEntry(objectName string, objectClasses []string, attributes map[string]string) (*ber.Packet, *ber.Packet) {
 	searchResEntry := ber.Encode(ber.ClassApplication, ber.TypeConstructed, 0x04, nil, "")
 
 	msgPacket := ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, objectName, "")
@@ -90,11 +91,7 @@ func createSearchResEntry(objectName string, objtype string, attributes map[stri
 	attrPacket := ber.NewSequence("")
 
 	// Create objectClass package
-	if objtype == "user" {
-		createAttributePkg(attrPacket, "objectClass", []string{"top", "person", "organizationalPerson", objtype})
-	} else {
-		createAttributePkg(attrPacket, "objectClass", []string{"top", objtype})
-	}
+	createAttributePkg(attrPacket, "objectClass", objectClasses)
 
 	// Add custom attributes to attribute package
 	for key, value := range attributes {
@@ -102,6 +99,32 @@ func createSearchResEntry(objectName string, objtype string, attributes map[stri
 	}
 
 	return attrPacket, searchResEntry
+}
+
+func joinGroupsAndUsers(config models.AppConfig) []models.LdapElement {
+	var allItems []models.LdapElement
+
+	for _, group := range config.Groups {
+		newItem := models.LdapElement{Cn: group.Cn, UserAccountControl: -1}
+		newItem.ObjectClass = []string{"top", "group"}
+		newItem.Attributes = map[string]string{"name": group.Cn}
+		allItems = append(allItems, newItem)
+	}
+
+	for _, user := range config.Users {
+		newItem := models.LdapElement{Cn: user.Cn, UserAccountControl: user.UserAccountControl}
+		newItem.ObjectClass = []string{"top", "person", "organizationalPerson", "user"}
+		newItem.Attributes = user.Attributes
+
+		for _, ug := range user.Groups {
+			groupName := createObjectName(ug, "CN=Users", config.Configuration.Domain)
+			newItem.MemberOf = append(newItem.MemberOf, groupName)
+		}
+
+		allItems = append(allItems, newItem)
+	}
+
+	return allItems
 }
 
 func HandleSearchRequest(conn net.Conn, p *ber.Packet, msgNum uint8, bindSuccessful bool, config models.AppConfig) {
@@ -130,40 +153,24 @@ func HandleSearchRequest(conn net.Conn, p *ber.Packet, msgNum uint8, bindSuccess
 		return
 	}
 
-	// Add groups
-	for _, group := range config.Groups {
+	// Create response
+	allObjects := joinGroupsAndUsers(config)
+	for _, object := range allObjects {
 		rspX := createResponsePacket(msgNum)
-		attrs := map[string]string{"name": group.Cn}
-		objectName := createObjectName(group.Cn, "CN=Users", config.Configuration.Domain)
-		attrPkg, sREPkg := createSearchResEntry(objectName, "group", attrs)
+		objectName := createObjectName(object.Cn, "CN=Users", config.Configuration.Domain)
+		attrPkg, sREPkg := createSearchResEntry(objectName, object.ObjectClass, object.Attributes)
 
 		// Add CN
-		createAttributePkg(attrPkg, "cn", []string{group.Cn})
-
-		// Attach attributes to response, and finally send the response package
-		sREPkg.AppendChild(attrPkg)
-		rspX.AppendChild(sREPkg)
-		conn.Write(rspX.Bytes())
-	}
-
-	// Add users
-	for _, user := range config.Users {
-		rspX := createResponsePacket(msgNum)
-		objectName := createObjectName(user.Cn, "CN=Users", config.Configuration.Domain)
-		attrPkg, sREPkg := createSearchResEntry(objectName, "user", user.Attributes)
-
-		// Add CN
-		createAttributePkg(attrPkg, "cn", []string{user.Cn})
+		createAttributePkg(attrPkg, "cn", []string{object.Cn})
 
 		// Add memberof packages
-		var groups []string
-		for _, ug := range user.Groups {
-			groupName := createObjectName(ug, "CN=Users", config.Configuration.Domain)
-			groups = append(groups, groupName)
+		if len(object.MemberOf) > 0 {
+			createAttributePkg(attrPkg, "memberOf", object.MemberOf)
 		}
 
-		if len(groups) > 0 {
-			createAttributePkg(attrPkg, "memberOf", groups)
+		if object.UserAccountControl > 0 {
+			uacStr := strconv.Itoa(object.UserAccountControl)
+			createAttributePkg(attrPkg, "userAccountControl", []string{uacStr})
 		}
 
 		// Attach attributes to response, and finally send the response package

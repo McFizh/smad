@@ -36,6 +36,9 @@ func HandleBindRequest(conn net.Conn, p *ber.Packet, msgNum uint8, users []model
 	statusCode := 0
 	msg := ""
 
+	// TODO: Add support for expired passwords:
+	// Error msg: additional info: 80090308: LdapErr: DSID-0C090527, comment: AcceptSecurityContext error, data 532, v4563
+
 	if len(password) == 0 {
 		// AD returns bind successful message, but with error message in the actual search result
 		// even if user is not found
@@ -44,8 +47,16 @@ func HandleBindRequest(conn net.Conn, p *ber.Packet, msgNum uint8, users []model
 		statusCode = 49
 		msg = "80090308: LdapErr: DSID-0C090569, comment: AcceptSecurityContext error, data 52e, v4563"
 	} else {
-		// User found and password matches
-		userOk = true
+		user := users[userRecordIdx]
+
+		if (user.UserAccountControl & 2) == 2 {
+			// Account disabled
+			statusCode = 49
+			msg = "80090308: LdapErr: DSID-0C090527, comment: AcceptSecurityContext error, data 533, v4563"
+		} else {
+			// User found, account not disabled and password matches
+			userOk = true
+		}
 	}
 
 	// Create bind response packet

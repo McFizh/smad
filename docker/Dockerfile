@@ -9,13 +9,13 @@ COPY ldap/*.go ./ldap/
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o smad
 
-FROM alpine:3.22
+FROM alpine:3.23
 WORKDIR /app
 RUN apk update && apk upgrade && addgroup -S smadgrp && adduser -S smadusr -G smadgrp
 COPY --from=builder /app/smad /app/
-COPY --chown=smadusr:smargrp configs/config.json.example /app/configs/config.json
-COPY --chown=smadusr:smargrp configs/users.json.example /app/configs/users.json
-COPY --chown=smadusr:smargrp configs/groups.json.example /app/configs/groups.json
+COPY --chown=smadusr:smadgrp configs/config.json.example /app/configs/config.json
+COPY --chown=smadusr:smadgrp configs/users.json.example /app/configs/users.json
+COPY --chown=smadusr:smadgrp configs/groups.json.example /app/configs/groups.json
 USER smadusr
 EXPOSE 1389
 
