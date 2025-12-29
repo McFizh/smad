@@ -30,7 +30,11 @@ func readUsersAndGroups(config *models.AppConfig) {
 		log.Fatalln(err)
 	}
 	defer fs1.Close()
-	content1, _ := io.ReadAll(fs1)
+	content1, err := io.ReadAll(fs1)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
 	json.Unmarshal(content1, &config.Users)
 
 	fs2, err := os.Open(config.Configuration.GroupFile)
@@ -38,7 +42,11 @@ func readUsersAndGroups(config *models.AppConfig) {
 		log.Fatalln(err)
 	}
 	defer fs2.Close()
-	content2, _ := io.ReadAll(fs2)
+	content2, err := io.ReadAll(fs2)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
 	json.Unmarshal(content2, &config.Groups)
 }
 

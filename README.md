@@ -10,13 +10,14 @@ Feature list:
 
 - Lightweight (fast startup + small memory footprint)
 - Support for simple ldap authentication: userPrincipalName (email) + password
-- Support for listing users and groups (no filtering) on ldap search
+- Support for listing users and groups on ldap search. Does support simple objectclass attribute filtering
 - Domain validation in baseDN
 - SSL support
 
 Todo:
 
-- Implement basic filtering mechanism to ldap query
+- Add support for OR operator to search filtering
+- Add more attributes to search filter (memberOf at least)
 
 ## Configuration files
 
@@ -32,12 +33,18 @@ Application requires 3 configuration files (in configs folder) to work. Location
 
 ## User configuration
 
-User object consists of 4 attributes:
+User object consists of 7 attributes:
 
 - upn
   - "userPrincipalName" .. email address that user can authenticate with, also shown in user attributes
 - password
   - Plaintext password for user (so don't store any actual secrets here)
+- passwordNeverExpire
+  - Boolean value telling if accounts password should never expire
+  - Currently doesn't really do anything, but does show on 'userAccountControl' attribute
+- accountDisabled
+  - Boolean value telling if account is completely disabled
+  - If set to true, then prevents user from logging in
 - cn
   - "Common name" identifier for user object (also appears as name in attributes field)
 - groups
@@ -68,7 +75,7 @@ If you get the following error to logs: 'tls: bad record MAC', remember to allow
 
 ## Running project locally
 
-Make sure you have latest go (1.24 when writing this) installed. Copy config.example.json to config.json and modify it to suit your needs, then:
+Make sure you have recent go (min: 1.24) installed. Copy config.example.json to config.json and modify it to suit your needs, then:
 
 `go run *.go`
 
@@ -86,10 +93,18 @@ Run image. Note that using port number below 1024 requires root privileges, and 
 
 ## LDAP queries
 
+Note: You must set the domain correctly (=match base dc) in config.json, otherwise the search returns nothing.
+
 System currently supports the following search case(s):
 
 - listing of data (groups and users):
 
   `ldapsearch -H ldap://localhost:1389 -x -W -o ldif-wrap=no -D "test.user@gmail.invalid" -b "dc=example,dc=com"`
 
-Note: You must set the domain correctly (=match base dc) in config.json, otherwise the search returns nothing.
+- filtering by one objectClass value
+
+  `ldapsearch -H ldap://localhost:1389 -x -W -o ldif-wrap=no -D "test.user@gmail.invalid" -b "dc=example,dc=com" "objectClass=top"`
+
+- filtering by multiple objectClass values
+
+  `ldapsearch -H ldap://localhost:1389 -x -W -o ldif-wrap=no -D "test.user@gmail.invalid" -b "dc=example,dc=com" "(&(objectClass=top)(objectClass=group))"`

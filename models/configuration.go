@@ -10,6 +10,11 @@ type Configuration struct {
 	Domain    string `json:"domain"`
 }
 
+type LdapFilter struct {
+	Attribute string
+	Value     string
+}
+
 type LdapElement struct {
 	Cn                 string
 	Attributes         map[string]string

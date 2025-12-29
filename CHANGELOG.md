@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.5] - 2025-12-29
+
+- Added really basic search filtering for objectclass attribute
+- Added 30s timeout to read method
+- Increased read buffer size
+
 ## [0.1.4] - 2025-12-29
 
 - Made log messages bit easier to read

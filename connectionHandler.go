@@ -7,6 +7,7 @@ import (
 	"net"
 	"smad/ldap"
 	"smad/models"
+	"time"
 
 	ber "github.com/go-asn1-ber/asn1-ber"
 	"github.com/google/uuid"
@@ -65,12 +66,14 @@ func handlePacket(conn net.Conn, p *ber.Packet, connectId uuid.UUID, bindSuccess
 }
 
 func handleConnection(conn net.Conn, appConfig models.AppConfig) {
-	request := make([]byte, 1024)
+	request := make([]byte, 4096)
 	bindSuccessful := false
 	connectId, _ := uuid.NewRandom()
 
 	log.Printf("CID: %s, new connection, waiting for data.\n", connectId)
 	for {
+		// Wait 30s for data
+		conn.SetReadDeadline(time.Now().Add(30 * time.Second))
 		_, err := conn.Read(request)
 
 		if err != nil {

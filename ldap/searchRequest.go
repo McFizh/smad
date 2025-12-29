@@ -127,6 +127,70 @@ func joinGroupsAndUsers(config models.AppConfig) []models.LdapElement {
 	return allItems
 }
 
+func createFilter(rawFilter *ber.Packet) models.LdapFilter {
+	var filter models.LdapFilter
+
+	filter.Attribute = strings.ToLower(fmt.Sprintf("%v", rawFilter.Children[0].Value))
+	filter.Value = strings.ToLower(fmt.Sprintf("%v", rawFilter.Children[1].Value))
+
+	return filter
+}
+
+func isInStringArray(haystack []string, needle string) bool {
+	idx := slices.IndexFunc(haystack, func(value string) bool { return strings.ToLower(value) == needle })
+	if idx == -1 {
+		return false
+	}
+	return true
+}
+
+func filterObjects(rawData []models.LdapElement, filters *ber.Packet) []models.LdapElement {
+	var queryFilters []models.LdapFilter
+	var filteredElements []models.LdapElement
+
+	if len(filters.Children) == 0 || (filters.TagType == ber.TypePrimitive && filters.Value == nil) {
+		// No filters .. do nothing
+	} else if filters.TagType == ber.TypeConstructed && filters.Tag == 3 && len(filters.Children) == 2 {
+		// Only one filter?
+		queryFilters = append(queryFilters, createFilter(filters))
+	} else if filters.TagType == ber.TypeConstructed && filters.Tag == 0 {
+		// Multiple values
+		for _, filter := range filters.Children {
+			if filter.Tag == 3 && len(filter.Children) == 2 {
+				queryFilters = append(queryFilters, createFilter(filter))
+			}
+		}
+	} else {
+		log.Printf("Unsupported search filter package:\n")
+		ber.PrintPacket(filters)
+		return rawData
+	}
+
+	// No filters set
+	if len(queryFilters) == 0 {
+		return rawData
+	}
+
+	// Run filters
+	for _, item := range rawData {
+		ignoreItem := false
+		// For now we only support objectclass filter
+		for _, filter := range queryFilters {
+			if filter.Attribute == "objectclass" && !isInStringArray(item.ObjectClass, filter.Value) {
+				ignoreItem = true
+			}
+		}
+
+		// Should the item be included in result?
+		if !ignoreItem {
+			filteredElements = append(filteredElements, item)
+		}
+	}
+
+	// Return filtered elements
+	return filteredElements
+}
+
 func HandleSearchRequest(conn net.Conn, p *ber.Packet, msgNum uint8, bindSuccessful bool, config models.AppConfig) {
 	if len(p.Children) < 6 {
 		log.Println("Unsupported search package")
@@ -154,7 +218,12 @@ func HandleSearchRequest(conn net.Conn, p *ber.Packet, msgNum uint8, bindSuccess
 	}
 
 	// Create response
-	allObjects := joinGroupsAndUsers(config)
+	allObjectsRaw := joinGroupsAndUsers(config)
+
+	// IDX 6 contains possible filters
+	allObjects := filterObjects(allObjectsRaw, p.Children[6])
+
+	// Finally return results
 	for _, object := range allObjects {
 		rspX := createResponsePacket(msgNum)
 		objectName := createObjectName(object.Cn, "CN=Users", config.Configuration.Domain)
@@ -189,7 +258,6 @@ func HandleSearchRequest(conn net.Conn, p *ber.Packet, msgNum uint8, bindSuccess
 		sizeLimit := p.Children[3].Value
 		timeLimit := p.Children[4].Value
 		typesOnly := p.Children[5].Value
-		filters := p.Children[6]
 
 	*/
 
