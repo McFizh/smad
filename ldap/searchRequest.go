@@ -209,6 +209,8 @@ func filterObjects(rawData []models.LdapElement, filters *ber.Packet) []models.L
 				srcData = item.ObjectClass
 			case "userprincipalname":
 				srcData = []string{item.Attributes["userPrincipalName"]}
+			default:
+				continue
 			}
 
 			ignoreItem = isInStringArray(ignoreItem, isAndFilter, srcData, filter.Value)

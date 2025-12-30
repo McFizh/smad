@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.1.7] - 2025-12-30
+
+- Fixed regression with AND and unknown attributes (system should ignore them, not fail on them)
+
 ## [0.1.6] - 2025-12-30
 
 - Added support for OR operator to search filters

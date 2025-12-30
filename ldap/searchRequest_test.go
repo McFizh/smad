@@ -11,38 +11,117 @@ import (
 )
 
 func createTestData1() []models.LdapElement {
-	return []models.LdapElement{
-		{
-			Cn:          "user1",
-			ObjectClass: []string{"top", "person", "user"},
-			Attributes:  map[string]string{"name": "User One"},
-		},
-		{
-			Cn:          "group1",
-			ObjectClass: []string{"top", "group"},
-			Attributes:  map[string]string{"name": "Group One"},
-		},
-	}
-
+	return createTestDataWithElements(
+		createUserElement("user1"),
+		createGroupElement("group1"),
+	)
 }
 
 func createTestData2() []models.LdapElement {
-	return []models.LdapElement{
-		{
-			Cn:          "user1",
-			ObjectClass: []string{"top", "person", "user"},
-			Attributes:  map[string]string{"name": "User One"},
+	return createTestDataWithElements(
+		createUserElement("user1"),
+		createGroupElement("group1"),
+		createLdapElement("user2", []string{"top", "person"}, map[string]string{"name": "User Two"}),
+	)
+}
+
+// Helper function to create a single LDAP element
+func createLdapElement(cn string, objectClasses []string, attributes map[string]string) models.LdapElement {
+	return models.LdapElement{
+		Cn:          cn,
+		ObjectClass: objectClasses,
+		Attributes:  attributes,
+	}
+}
+
+// Helper function to create a basic user element
+func createUserElement(cn string, additionalClasses ...string) models.LdapElement {
+	classes := []string{"top", "person", "user"}
+	classes = append(classes, additionalClasses...)
+	return createLdapElement(cn, classes, map[string]string{"name": cn + " Name"})
+}
+
+// Helper function to create a basic group element
+func createGroupElement(cn string, additionalClasses ...string) models.LdapElement {
+	classes := []string{"top", "group"}
+	classes = append(classes, additionalClasses...)
+	return createLdapElement(cn, classes, map[string]string{"name": cn + " Name"})
+}
+
+// Helper function to create a unified test data set
+func createTestDataWithElements(elements ...models.LdapElement) []models.LdapElement {
+	return elements
+}
+
+// Helper function to create a basic test configuration
+func createTestConfig(domain string) models.AppConfig {
+	return models.AppConfig{
+		Configuration: models.Configuration{
+			Domain: domain,
 		},
-		{
-			Cn:          "group1",
-			ObjectClass: []string{"top", "group"},
-			Attributes:  map[string]string{"name": "Group One"},
+	}
+}
+
+// Helper function to create a test configuration with users and groups
+func createTestConfigWithUsersAndGroups(domain string, users []models.User, groups []models.Group) models.AppConfig {
+	return models.AppConfig{
+		Configuration: models.Configuration{
+			Domain: domain,
 		},
-		{
-			Cn:          "user2",
-			ObjectClass: []string{"top", "person"},
-			Attributes:  map[string]string{"name": "User Two"},
-		},
+		Users:   users,
+		Groups:  groups,
+	}
+}
+
+// Helper function to create a basic user
+func createTestUser(cn, upn, password string, groups []string, attributes map[string]string) models.User {
+	return models.User{
+		Cn:         cn,
+		Upn:        upn,
+		Password:   password,
+		Groups:     groups,
+		Attributes: attributes,
+	}
+}
+
+// Helper function to create a basic group
+func createTestGroup(cn string) models.Group {
+	return models.Group{
+		Cn: cn,
+	}
+}
+
+// Helper function to create a mock connection and search request
+func createTestSetup(domain, baseDN, filter string, authenticated bool) (*mocks.MockConn, *ber.Packet, models.AppConfig) {
+	conn := mocks.NewMockConn()
+	config := createTestConfig(domain)
+	searchReq := createSearchRequestPacket(baseDN, filter)
+	return conn, searchReq, config
+}
+
+// Helper function to assert that a response was written
+func assertResponseWritten(t *testing.T, conn *mocks.MockConn, testName string) {
+	writtenData := conn.GetWrittenData()
+	if len(writtenData) == 0 {
+		t.Errorf("%s should write a response", testName)
+	}
+}
+
+// Helper function to assert that a response contains specific data
+func assertResponseContains(t *testing.T, conn *mocks.MockConn, testName string, expectedData []byte) {
+	writtenData := conn.GetWrittenData()
+	if !bytes.Contains(writtenData, expectedData) {
+		t.Errorf("%s response should contain %s", testName, string(expectedData))
+	}
+}
+
+// Helper function to assert filter results
+func assertFilterResults(t *testing.T, result []models.LdapElement, expectedCount int, expectedCn string, testName string) {
+	if len(result) != expectedCount {
+		t.Errorf("%s = %d items, want %d items", testName, len(result), expectedCount)
+	}
+	if expectedCount > 0 && expectedCn != "" && result[0].Cn != expectedCn {
+		t.Errorf("%s = %s, want '%s'", testName, result[0].Cn, expectedCn)
 	}
 }
 
@@ -314,13 +393,7 @@ func TestFilterObjectsSingleFilter(t *testing.T) {
 	result := filterObjects(rawData, filterPacket)
 
 	// Should return only user1
-	if len(result) != 1 {
-		t.Errorf("filterObjects() = %d items, want 1 item for person filter", len(result))
-	}
-
-	if result[0].Cn != "user1" {
-		t.Errorf("filterObjects() = %s, want 'user1' for person filter", result[0].Cn)
-	}
+	assertFilterResults(t, result, 1, "user1", "filterObjects with person filter")
 }
 
 func TestFilterObjectsMultipleFilters(t *testing.T) {
@@ -334,13 +407,7 @@ func TestFilterObjectsMultipleFilters(t *testing.T) {
 	result := filterObjects(rawData, filterPacket)
 
 	// Should return only user1 (has both person and user objectClasses)
-	if len(result) != 1 {
-		t.Errorf("filterObjects() = %d items, want 1 item for AND filter", len(result))
-	}
-
-	if result[0].Cn != "user1" {
-		t.Errorf("filterObjects() = %s, want 'user1' for AND filter", result[0].Cn)
-	}
+	assertFilterResults(t, result, 1, "user1", "filterObjects with AND filter")
 }
 
 func TestFilterObjectsGroupFilter(t *testing.T) {
@@ -354,13 +421,7 @@ func TestFilterObjectsGroupFilter(t *testing.T) {
 	result := filterObjects(rawData, filterPacket)
 
 	// Should return only group1
-	if len(result) != 1 {
-		t.Errorf("filterObjects() = %d items, want 1 item for group filter", len(result))
-	}
-
-	if result[0].Cn != "group1" {
-		t.Errorf("filterObjects() = %s, want 'group1' for group filter", result[0].Cn)
-	}
+	assertFilterResults(t, result, 1, "group1", "filterObjects with group filter")
 }
 
 func TestFilterObjectsORFilter(t *testing.T) {
@@ -464,165 +525,94 @@ func TestFilterObjectsEmptyFilters(t *testing.T) {
 }
 
 func TestHandleSearchRequestUnauthenticated(t *testing.T) {
-	// Create mock connection
-	conn := mocks.NewMockConn()
-
-	// Create test configuration
-	config := models.AppConfig{
-		Configuration: models.Configuration{
-			Domain: "example.com",
-		},
-	}
-
-	// Create search request packet
-	searchReq := createSearchRequestPacket("DC=example,DC=com", "")
+	// Create test setup
+	conn, searchReq, config := createTestSetup("example.com", "DC=example,DC=com", "", false)
 
 	// Test unauthenticated search request
 	HandleSearchRequest(conn, searchReq, 1, false, config)
 
 	// Verify that a response was written
-	writtenData := conn.GetWrittenData()
-	if len(writtenData) == 0 {
-		t.Error("HandleSearchRequest should write a response for unauthenticated request")
-	}
+	assertResponseWritten(t, conn, "HandleSearchRequest for unauthenticated request")
 
 	// Verify that the response contains the expected error message
-	if !bytes.Contains(writtenData, []byte("successful bind must be completed")) {
-		t.Error("HandleSearchRequest should return bind required error message")
-	}
+	assertResponseContains(t, conn, "HandleSearchRequest for unauthenticated request", []byte("successful bind must be completed"))
 }
 
 func TestHandleSearchRequestInvalidDomain(t *testing.T) {
-	// Create mock connection
-	conn := mocks.NewMockConn()
-
-	// Create test configuration
-	config := models.AppConfig{
-		Configuration: models.Configuration{
-			Domain: "example.com",
-		},
-	}
-
-	// Create search request packet with wrong domain
-	// Note: The testDomain function is very permissive, so most domains will pass
-	// This test just verifies that the function handles the request gracefully
-	searchReq := createSearchRequestPacket("DC=wrong,DC=com", "")
+	// Create test setup
+	conn, searchReq, config := createTestSetup("example.com", "DC=wrong,DC=com", "", true)
 
 	// Test search request with different domain
 	HandleSearchRequest(conn, searchReq, 2, true, config)
 
 	// Verify that a response was written
-	writtenData := conn.GetWrittenData()
-	if len(writtenData) == 0 {
-		t.Error("HandleSearchRequest should write a response for domain request")
-	}
+	assertResponseWritten(t, conn, "HandleSearchRequest for domain request")
 
 	// The response should be a valid LDAP response (even if it's just an end-of-search packet)
+	writtenData := conn.GetWrittenData()
 	if len(writtenData) < 10 {
 		t.Error("HandleSearchRequest should return a valid LDAP response")
 	}
 }
 
 func TestHandleSearchRequestSuccessful(t *testing.T) {
-	// Create mock connection
-	conn := mocks.NewMockConn()
+	// Create test setup
+	conn, searchReq, _ := createTestSetup("example.com", "DC=example,DC=com", "", true)
 
 	// Create test configuration with users and groups
-	config := models.AppConfig{
-		Configuration: models.Configuration{
-			Domain: "example.com",
+	config := createTestConfigWithUsersAndGroups(
+		"example.com",
+		[]models.User{
+			createTestUser("testuser", "testuser@example.com", "testpass", []string{"testgroup"}, map[string]string{"name": "Test User"}),
 		},
-		Users: []models.User{
-			{
-				Cn:         "testuser",
-				Upn:        "testuser@example.com",
-				Password:   "testpass",
-				Groups:     []string{"testgroup"},
-				Attributes: map[string]string{"name": "Test User"},
-			},
+		[]models.Group{
+			createTestGroup("testgroup"),
 		},
-		Groups: []models.Group{
-			{
-				Cn: "testgroup",
-			},
-		},
-	}
-
-	// Create search request packet
-	searchReq := createSearchRequestPacket("DC=example,DC=com", "")
+	)
 
 	// Test successful search request
 	HandleSearchRequest(conn, searchReq, 3, true, config)
 
 	// Verify that a response was written
-	writtenData := conn.GetWrittenData()
-	if len(writtenData) == 0 {
-		t.Error("HandleSearchRequest should write a response for successful request")
-	}
+	assertResponseWritten(t, conn, "HandleSearchRequest for successful request")
 
 	// Verify that the response contains user data
-	if !bytes.Contains(writtenData, []byte("testuser")) {
-		t.Error("HandleSearchRequest response should contain user data")
-	}
+	assertResponseContains(t, conn, "HandleSearchRequest for successful request", []byte("testuser"))
 
 	// Verify that the response contains group data
-	if !bytes.Contains(writtenData, []byte("testgroup")) {
-		t.Error("HandleSearchRequest response should contain group data")
-	}
+	assertResponseContains(t, conn, "HandleSearchRequest for successful request", []byte("testgroup"))
 }
 
 func TestHandleSearchRequestWithFilter(t *testing.T) {
-	// Create mock connection
-	conn := mocks.NewMockConn()
+	// Create test setup
+	conn, searchReq, _ := createTestSetup("example.com", "DC=example,DC=com", "(objectClass=person)", true)
 
 	// Create test configuration with users and groups
-	config := models.AppConfig{
-		Configuration: models.Configuration{
-			Domain: "example.com",
+	config := createTestConfigWithUsersAndGroups(
+		"example.com",
+		[]models.User{
+			createTestUser("testuser", "testuser@example.com", "testpass", []string{"testgroup"}, map[string]string{"name": "Test User"}),
 		},
-		Users: []models.User{
-			{
-				Cn:         "testuser",
-				Upn:        "testuser@example.com",
-				Password:   "testpass",
-				Groups:     []string{"testgroup"},
-				Attributes: map[string]string{"name": "Test User"},
-			},
+		[]models.Group{
+			createTestGroup("testgroup"),
 		},
-		Groups: []models.Group{
-			{
-				Cn: "testgroup",
-			},
-		},
-	}
-
-	// Create search request packet with person filter
-	searchReq := createSearchRequestPacket("DC=example,DC=com", "(objectClass=person)")
+	)
 
 	// Test search request with filter
 	HandleSearchRequest(conn, searchReq, 4, true, config)
 
 	// Verify that a response was written
-	writtenData := conn.GetWrittenData()
-	if len(writtenData) == 0 {
-		t.Error("HandleSearchRequest should write a response for filtered request")
-	}
+	assertResponseWritten(t, conn, "HandleSearchRequest for filtered request")
 
 	// Verify that the response contains user data (should be filtered)
-	if !bytes.Contains(writtenData, []byte("testuser")) {
-		t.Error("HandleSearchRequest response should contain filtered user data")
-	}
+	assertResponseContains(t, conn, "HandleSearchRequest for filtered request", []byte("testuser"))
 
 	// Verify that the filtering is working by checking that the user object is included
 	// The user should have person-related object classes
-	if !bytes.Contains(writtenData, []byte("person")) {
-		t.Error("HandleSearchRequest response should contain person objectClass for filtered user")
-	}
+	assertResponseContains(t, conn, "HandleSearchRequest for filtered request", []byte("person"))
 
 	// The response should contain the user's memberOf attribute (which includes the group)
-	if !bytes.Contains(writtenData, []byte("memberOf")) {
-		t.Error("HandleSearchRequest response should contain memberOf attribute")
-	}
+	assertResponseContains(t, conn, "HandleSearchRequest for filtered request", []byte("memberOf"))
 
 	// Note: The group name will appear in the user's memberOf attribute, which is expected
 	// The important thing is that the filtering is working correctly to include only users
