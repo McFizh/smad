@@ -10,6 +10,42 @@ import (
 	ber "github.com/go-asn1-ber/asn1-ber"
 )
 
+func createTestData1() []models.LdapElement {
+	return []models.LdapElement{
+		{
+			Cn:          "user1",
+			ObjectClass: []string{"top", "person", "user"},
+			Attributes:  map[string]string{"name": "User One"},
+		},
+		{
+			Cn:          "group1",
+			ObjectClass: []string{"top", "group"},
+			Attributes:  map[string]string{"name": "Group One"},
+		},
+	}
+
+}
+
+func createTestData2() []models.LdapElement {
+	return []models.LdapElement{
+		{
+			Cn:          "user1",
+			ObjectClass: []string{"top", "person", "user"},
+			Attributes:  map[string]string{"name": "User One"},
+		},
+		{
+			Cn:          "group1",
+			ObjectClass: []string{"top", "group"},
+			Attributes:  map[string]string{"name": "Group One"},
+		},
+		{
+			Cn:          "user2",
+			ObjectClass: []string{"top", "person"},
+			Attributes:  map[string]string{"name": "User Two"},
+		},
+	}
+}
+
 // Helper function to create a proper LDAP search request packet
 func createSearchRequestPacket(baseDN, filter string) *ber.Packet {
 	// Create the main search request packet
@@ -253,18 +289,7 @@ func TestIsInStringArray(t *testing.T) {
 
 func TestFilterObjectsNoFilters(t *testing.T) {
 	// Create test data
-	rawData := []models.LdapElement{
-		{
-			Cn:          "user1",
-			ObjectClass: []string{"top", "person", "user"},
-			Attributes:  map[string]string{"name": "User One"},
-		},
-		{
-			Cn:          "group1",
-			ObjectClass: []string{"top", "group"},
-			Attributes:  map[string]string{"name": "Group One"},
-		},
-	}
+	rawData := createTestData1()
 
 	// Create empty filter packet
 	filterPacket := ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "")
@@ -280,18 +305,7 @@ func TestFilterObjectsNoFilters(t *testing.T) {
 
 func TestFilterObjectsSingleFilter(t *testing.T) {
 	// Create test data
-	rawData := []models.LdapElement{
-		{
-			Cn:          "user1",
-			ObjectClass: []string{"top", "person", "user"},
-			Attributes:  map[string]string{"name": "User One"},
-		},
-		{
-			Cn:          "group1",
-			ObjectClass: []string{"top", "group"},
-			Attributes:  map[string]string{"name": "Group One"},
-		},
-	}
+	rawData := createTestData1()
 
 	// Create filter for person objects
 	filterPacket := createFilterPacket("(objectClass=person)")
@@ -311,23 +325,7 @@ func TestFilterObjectsSingleFilter(t *testing.T) {
 
 func TestFilterObjectsMultipleFilters(t *testing.T) {
 	// Create test data
-	rawData := []models.LdapElement{
-		{
-			Cn:          "user1",
-			ObjectClass: []string{"top", "person", "user"},
-			Attributes:  map[string]string{"name": "User One"},
-		},
-		{
-			Cn:          "group1",
-			ObjectClass: []string{"top", "group"},
-			Attributes:  map[string]string{"name": "Group One"},
-		},
-		{
-			Cn:          "user2",
-			ObjectClass: []string{"top", "person"},
-			Attributes:  map[string]string{"name": "User Two"},
-		},
-	}
+	rawData := createTestData2()
 
 	// Create AND filter for person AND user objects
 	filterPacket := createFilterPacket("(&(objectClass=person)(objectClass=user))")
@@ -347,18 +345,7 @@ func TestFilterObjectsMultipleFilters(t *testing.T) {
 
 func TestFilterObjectsGroupFilter(t *testing.T) {
 	// Create test data
-	rawData := []models.LdapElement{
-		{
-			Cn:          "user1",
-			ObjectClass: []string{"top", "person", "user"},
-			Attributes:  map[string]string{"name": "User One"},
-		},
-		{
-			Cn:          "group1",
-			ObjectClass: []string{"top", "group"},
-			Attributes:  map[string]string{"name": "Group One"},
-		},
-	}
+	rawData := createTestData1()
 
 	// Create filter for group objects
 	filterPacket := createFilterPacket("(objectClass=group)")
@@ -378,23 +365,7 @@ func TestFilterObjectsGroupFilter(t *testing.T) {
 
 func TestFilterObjectsORFilter(t *testing.T) {
 	// Create test data
-	rawData := []models.LdapElement{
-		{
-			Cn:          "user1",
-			ObjectClass: []string{"top", "person", "user"},
-			Attributes:  map[string]string{"name": "User One"},
-		},
-		{
-			Cn:          "group1",
-			ObjectClass: []string{"top", "group"},
-			Attributes:  map[string]string{"name": "Group One"},
-		},
-		{
-			Cn:          "user2",
-			ObjectClass: []string{"top", "person"},
-			Attributes:  map[string]string{"name": "User Two"},
-		},
-	}
+	rawData := createTestData2()
 
 	// Create OR filter for person OR group objects
 	filterPacket := createFilterPacket("(|(objectClass=person)(objectClass=group))")
@@ -460,18 +431,7 @@ func TestFilterObjectsUserPrincipalName(t *testing.T) {
 
 func TestFilterObjectsEmptyFilters(t *testing.T) {
 	// Create test data
-	rawData := []models.LdapElement{
-		{
-			Cn:          "user1",
-			ObjectClass: []string{"top", "person", "user"},
-			Attributes:  map[string]string{"name": "User One"},
-		},
-		{
-			Cn:          "group1",
-			ObjectClass: []string{"top", "group"},
-			Attributes:  map[string]string{"name": "Group One"},
-		},
-	}
+	rawData := createTestData1()
 
 	// Test empty AND filter with children (should return all items)
 	emptyAndFilter := ber.Encode(ber.ClassContext, ber.TypeConstructed, 0, nil, "")
@@ -487,7 +447,7 @@ func TestFilterObjectsEmptyFilters(t *testing.T) {
 	// Add a dummy child that won't match the expected structure (Tag != 3)
 	dummyChild := ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "dummy", "")
 	emptyOrFilter.AppendChild(dummyChild)
-	
+
 	result = filterObjects(rawData, emptyOrFilter)
 
 	if len(result) != 0 {
