@@ -24,7 +24,7 @@ func addEndOfSearchPkg(rsp *ber.Packet, statusCode int, errorMessage string) {
 	rsp.AppendChild(searchRspPacket)
 }
 
-func createObjectName(cn string, prefix string, domain string) string {
+func createObjectName(cn, prefix, domain string) string {
 	objName := "CN=" + cn + "," + prefix
 
 	domainParts := strings.Split(domain, ".")
@@ -35,7 +35,7 @@ func createObjectName(cn string, prefix string, domain string) string {
 	return objName
 }
 
-func testDomain(baseObject string, domain string) uint8 {
+func testDomain(baseObject, domain string) uint8 {
 	// If domain has less than 2 parts, it's not valid domain
 	domainParts := strings.Split(domain, ".")
 	slices.Reverse(domainParts)
