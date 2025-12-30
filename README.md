@@ -10,13 +10,13 @@ Feature list:
 
 - Lightweight (fast startup + small memory footprint)
 - Support for simple ldap authentication: userPrincipalName (email) + password
-- Support for listing users and groups on ldap search. Does support simple objectclass attribute filtering
+- Support for listing users and groups on ldap search. 
+- Supports simple AND/OR search filters for attributes: objectclass + userprincipalname
 - Domain validation in baseDN
 - SSL support
 
 Todo:
 
-- Add support for OR operator to search filtering
 - Add more attributes to search filter (memberOf at least)
 
 ## Configuration files
@@ -108,3 +108,7 @@ System currently supports the following search case(s):
 - filtering by multiple objectClass values
 
   `ldapsearch -H ldap://localhost:1389 -x -W -o ldif-wrap=no -D "test.user@gmail.invalid" -b "dc=example,dc=com" "(&(objectClass=top)(objectClass=group))"`
+
+- filtering by either objectclass or userprincipalname
+
+  `ldapsearch -H ldap://localhost:1389 -x -W -o ldif-wrap=no -D "test.user@gmail.invalid" -b "dc=example,dc=com" "(|(objectClass=group)(userprincipalname=test@email.invalid))"`  

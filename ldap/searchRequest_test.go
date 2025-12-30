@@ -98,6 +98,30 @@ func createFilterPacket(filter string) *ber.Packet {
 		return andFilter
 	}
 
+	// OR filter example: (|(objectClass=person)(objectClass=group))
+	if filter == "(|(objectClass=person)(objectClass=group))" {
+		// Create OR filter with multiple conditions
+		orFilter := ber.Encode(ber.ClassContext, ber.TypeConstructed, 1, nil, "")
+
+		// First condition: objectClass=person
+		personFilter := ber.Encode(ber.ClassContext, ber.TypeConstructed, 3, nil, "")
+		personAttr := ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "objectClass", "")
+		personValue := ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "person", "")
+		personFilter.AppendChild(personAttr)
+		personFilter.AppendChild(personValue)
+		orFilter.AppendChild(personFilter)
+
+		// Second condition: objectClass=group
+		groupFilter := ber.Encode(ber.ClassContext, ber.TypeConstructed, 3, nil, "")
+		groupAttr := ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "objectClass", "")
+		groupValue := ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "group", "")
+		groupFilter.AppendChild(groupAttr)
+		groupFilter.AppendChild(groupValue)
+		orFilter.AppendChild(groupFilter)
+
+		return orFilter
+	}
+
 	// Default: return empty filter
 	return ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "")
 }
@@ -183,25 +207,47 @@ func TestCreateFilter(t *testing.T) {
 func TestIsInStringArray(t *testing.T) {
 	haystack := []string{"apple", "banana", "cherry"}
 
-	// Test existing item
-	if !isInStringArray(haystack, "apple") {
-		t.Error("isInStringArray should find 'apple' in haystack")
+	// Test existing item with AND filter (should return false - don't ignore)
+	result := isInStringArray(false, true, haystack, "apple")
+	if result {
+		t.Error("isInStringArray with AND filter should return false when item exists")
 	}
 
-	// Test case insensitive matching - the function converts haystack to lowercase, so needle must be lowercase
-	if !isInStringArray(haystack, "apple") {
-		t.Error("isInStringArray should find 'apple' in haystack")
+	// Test non-existing item with AND filter (should return true - ignore)
+	result = isInStringArray(false, true, haystack, "orange")
+	if !result {
+		t.Error("isInStringArray with AND filter should return true when item doesn't exist")
 	}
 
-	// Test non-existing item
-	if isInStringArray(haystack, "orange") {
-		t.Error("isInStringArray should not find 'orange' in haystack")
+	// Test existing item with OR filter (should return false - don't ignore)
+	result = isInStringArray(true, false, haystack, "apple")
+	if result {
+		t.Error("isInStringArray with OR filter should return false when item exists")
 	}
 
-	// Test empty haystack
+	// Test non-existing item with OR filter (should return previous state)
+	result = isInStringArray(true, false, haystack, "orange")
+	if !result {
+		t.Error("isInStringArray with OR filter should return previous state when item doesn't exist")
+	}
+
+	// Test empty haystack with AND filter
 	emptyHaystack := []string{}
-	if isInStringArray(emptyHaystack, "apple") {
-		t.Error("isInStringArray should not find anything in empty haystack")
+	result = isInStringArray(false, true, emptyHaystack, "apple")
+	if !result {
+		t.Error("isInStringArray should return true for empty haystack with AND filter")
+	}
+
+	// Test case sensitive matching (current implementation is case-sensitive for needle)
+	result = isInStringArray(false, true, haystack, "APPLE")
+	if !result {
+		t.Error("isInStringArray should be case sensitive for needle")
+	}
+
+	// Test case insensitive matching with lowercase needle
+	result = isInStringArray(false, true, haystack, "apple")
+	if result {
+		t.Error("isInStringArray should find lowercase needle in mixed case haystack")
 	}
 }
 
@@ -327,6 +373,133 @@ func TestFilterObjectsGroupFilter(t *testing.T) {
 
 	if result[0].Cn != "group1" {
 		t.Errorf("filterObjects() = %s, want 'group1' for group filter", result[0].Cn)
+	}
+}
+
+func TestFilterObjectsORFilter(t *testing.T) {
+	// Create test data
+	rawData := []models.LdapElement{
+		{
+			Cn:          "user1",
+			ObjectClass: []string{"top", "person", "user"},
+			Attributes:  map[string]string{"name": "User One"},
+		},
+		{
+			Cn:          "group1",
+			ObjectClass: []string{"top", "group"},
+			Attributes:  map[string]string{"name": "Group One"},
+		},
+		{
+			Cn:          "user2",
+			ObjectClass: []string{"top", "person"},
+			Attributes:  map[string]string{"name": "User Two"},
+		},
+	}
+
+	// Create OR filter for person OR group objects
+	filterPacket := createFilterPacket("(|(objectClass=person)(objectClass=group))")
+
+	// Test filtering
+	result := filterObjects(rawData, filterPacket)
+
+	// Should return user1, group1, and user2 (all have either person or group)
+	if len(result) != 3 {
+		t.Errorf("filterObjects() = %d items, want 3 items for OR filter", len(result))
+	}
+
+	// Check that all expected items are present
+	foundItems := make(map[string]bool)
+	for _, item := range result {
+		foundItems[item.Cn] = true
+	}
+
+	if !foundItems["user1"] || !foundItems["group1"] || !foundItems["user2"] {
+		t.Errorf("filterObjects() OR filter should return user1, group1, and user2")
+	}
+}
+
+func TestFilterObjectsUserPrincipalName(t *testing.T) {
+	// Create test data with userPrincipalName attributes
+	rawData := []models.LdapElement{
+		{
+			Cn:          "user1",
+			ObjectClass: []string{"top", "person", "user"},
+			Attributes:  map[string]string{"userPrincipalName": "user1@example.com"},
+		},
+		{
+			Cn:          "user2",
+			ObjectClass: []string{"top", "person", "user"},
+			Attributes:  map[string]string{"userPrincipalName": "user2@example.com"},
+		},
+		{
+			Cn:          "user3",
+			ObjectClass: []string{"top", "person", "user"},
+			Attributes:  map[string]string{"userPrincipalName": "user3@different.com"},
+		},
+	}
+
+	// Create filter for userPrincipalName
+	filterPacket := ber.Encode(ber.ClassContext, ber.TypeConstructed, 3, nil, "")
+	attrPacket := ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "userPrincipalName", "")
+	valuePacket := ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "user1@example.com", "")
+	filterPacket.AppendChild(attrPacket)
+	filterPacket.AppendChild(valuePacket)
+
+	// Test filtering
+	result := filterObjects(rawData, filterPacket)
+
+	// Should return only user1
+	if len(result) != 1 {
+		t.Errorf("filterObjects() = %d items, want 1 item for userPrincipalName filter", len(result))
+	}
+
+	if result[0].Cn != "user1" {
+		t.Errorf("filterObjects() = %s, want 'user1' for userPrincipalName filter", result[0].Cn)
+	}
+}
+
+func TestFilterObjectsEmptyFilters(t *testing.T) {
+	// Create test data
+	rawData := []models.LdapElement{
+		{
+			Cn:          "user1",
+			ObjectClass: []string{"top", "person", "user"},
+			Attributes:  map[string]string{"name": "User One"},
+		},
+		{
+			Cn:          "group1",
+			ObjectClass: []string{"top", "group"},
+			Attributes:  map[string]string{"name": "Group One"},
+		},
+	}
+
+	// Test empty AND filter with children (should return all items)
+	emptyAndFilter := ber.Encode(ber.ClassContext, ber.TypeConstructed, 0, nil, "")
+	result := filterObjects(rawData, emptyAndFilter)
+
+	if len(result) != len(rawData) {
+		t.Errorf("filterObjects() = %d items for empty AND filter, want %d items", len(result), len(rawData))
+	}
+
+	// Test empty OR filter with children (should return no items)
+	// We need to add a dummy child to make it reach the OR filter logic
+	emptyOrFilter := ber.Encode(ber.ClassContext, ber.TypeConstructed, 1, nil, "")
+	// Add a dummy child that won't match the expected structure (Tag != 3)
+	dummyChild := ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "dummy", "")
+	emptyOrFilter.AppendChild(dummyChild)
+	
+	result = filterObjects(rawData, emptyOrFilter)
+
+	if len(result) != 0 {
+		t.Errorf("filterObjects() = %d items for empty OR filter, want 0 items", len(result))
+	}
+
+	// Test truly empty filter (no children, primitive type) - should return all items
+	trulyEmptyFilter := ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "")
+	result = filterObjects(rawData, trulyEmptyFilter)
+
+	if len(result) != len(rawData) {
+		t.Errorf("filterObjects() = %d items for truly empty filter, want %d items", len(result), len(rawData))
 	}
 }
 

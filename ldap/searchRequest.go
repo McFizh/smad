@@ -136,25 +136,44 @@ func createFilter(rawFilter *ber.Packet) models.LdapFilter {
 	return filter
 }
 
-func isInStringArray(haystack []string, needle string) bool {
+func isInStringArray(prevState bool, isAndFilter bool, haystack []string, needle string) bool {
+	found := true
+
+	// Does string array have the value we are looking for?
 	idx := slices.IndexFunc(haystack, func(value string) bool { return strings.ToLower(value) == needle })
 	if idx == -1 {
+		found = false
+	}
+
+	if isAndFilter && !found {
+		// AND filter should ignore item only if filter doesn't match
+		return true
+	} else if !isAndFilter && found {
+		// OR filter should include item, if filter matches
 		return false
 	}
-	return true
+
+	// Otherwise return previous state
+	return prevState
 }
 
 func filterObjects(rawData []models.LdapElement, filters *ber.Packet) []models.LdapElement {
 	var queryFilters []models.LdapFilter
 	var filteredElements []models.LdapElement
+	isAndFilter := true
 
 	if len(filters.Children) == 0 || (filters.TagType == ber.TypePrimitive && filters.Value == nil) {
 		// No filters .. do nothing
 	} else if filters.TagType == ber.TypeConstructed && filters.Tag == 3 && len(filters.Children) == 2 {
 		// Only one filter?
 		queryFilters = append(queryFilters, createFilter(filters))
-	} else if filters.TagType == ber.TypeConstructed && filters.Tag == 0 {
-		// Multiple values
+	} else if filters.TagType == ber.TypeConstructed && (filters.Tag == 0 || filters.Tag == 1) {
+		// TAG (0) = AND, TAG(1) = OR
+		if filters.Tag == 1 {
+			isAndFilter = false
+		}
+
+		// Process multiple values
 		for _, filter := range filters.Children {
 			if filter.Tag == 3 && len(filter.Children) == 2 {
 				queryFilters = append(queryFilters, createFilter(filter))
@@ -166,19 +185,33 @@ func filterObjects(rawData []models.LdapElement, filters *ber.Packet) []models.L
 		return rawData
 	}
 
-	// No filters set
+	// No filters set (empty AND should return all items, but empty OR should not return anything)
 	if len(queryFilters) == 0 {
-		return rawData
+		if isAndFilter {
+			return rawData
+		} else {
+			return filteredElements
+		}
 	}
 
 	// Run filters
 	for _, item := range rawData {
-		ignoreItem := false
-		// For now we only support objectclass filter
+		// For AND filter, we only ignore item, if some filter doesn't match
+		// For OR filter, by default we ignore all items, unless some filter matches
+		ignoreItem := !isAndFilter
+
+		// For now we only support objectclass + userPrincipalName filters
 		for _, filter := range queryFilters {
-			if filter.Attribute == "objectclass" && !isInStringArray(item.ObjectClass, filter.Value) {
-				ignoreItem = true
+			var srcData []string
+
+			switch filter.Attribute {
+			case "objectclass":
+				srcData = item.ObjectClass
+			case "userprincipalname":
+				srcData = []string{item.Attributes["userPrincipalName"]}
 			}
+
+			ignoreItem = isInStringArray(ignoreItem, isAndFilter, srcData, filter.Value)
 		}
 
 		// Should the item be included in result?

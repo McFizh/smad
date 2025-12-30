@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.1.6] - 2025-12-30
+
+- Added support for OR operator to search filters
+- Added userPrincipalName attribute as possible search attribute
+
 ## [0.1.5] - 2025-12-29
 
 - Added really basic search filtering for objectclass attribute
