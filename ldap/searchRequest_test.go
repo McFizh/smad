@@ -68,8 +68,8 @@ func createTestConfigWithUsersAndGroups(domain string, users []models.User, grou
 		Configuration: models.Configuration{
 			Domain: domain,
 		},
-		Users:   users,
-		Groups:  groups,
+		Users:  users,
+		Groups: groups,
 	}
 }
 
