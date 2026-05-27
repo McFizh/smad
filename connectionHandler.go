@@ -30,7 +30,7 @@ func logEvent(connectId uuid.UUID, msgNum uint8, tag ber.Tag) {
 	}
 }
 
-func handlePacket(conn net.Conn, p *ber.Packet, connectId uuid.UUID, bindSuccessful *bool, appConfig models.AppConfig) bool {
+func handlePacket(conn net.Conn, p *ber.Packet, connectID uuid.UUID, bindSuccessful *bool, appConfig *models.AppConfig) bool {
 	// Packet should have 2 children (message number, and operation)
 	if len(p.Children) != 2 {
 		log.Println("Unknown packet")
@@ -38,7 +38,7 @@ func handlePacket(conn net.Conn, p *ber.Packet, connectId uuid.UUID, bindSuccess
 	}
 
 	msgNum := uint8(p.Children[0].ByteValue[0])
-	logEvent(connectId, msgNum, p.Children[1].Tag)
+	logEvent(connectID, msgNum, p.Children[1].Tag)
 
 	isCommand := p.Children[1].ClassType == ber.ClassApplication
 
@@ -54,7 +54,7 @@ func handlePacket(conn net.Conn, p *ber.Packet, connectId uuid.UUID, bindSuccess
 		*bindSuccessful = ldap.HandleBindRequest(conn, p.Children[1], msgNum, appConfig.Users)
 	} else if isCommand && p.Children[1].Tag == 3 {
 		// Search request OP
-		ldap.HandleSearchRequest(conn, p.Children[1], msgNum, *bindSuccessful, appConfig)
+		ldap.HandleSearchRequest(conn, p.Children[1], msgNum, *bindSuccessful, *appConfig)
 	} else if isCommand && p.Children[1].Tag == 10 {
 		// Delete request OP
 		ldap.HandleDeleteRequest(conn, p.Children[1], msgNum, *bindSuccessful, appConfig)
@@ -65,17 +65,17 @@ func handlePacket(conn net.Conn, p *ber.Packet, connectId uuid.UUID, bindSuccess
 	return false
 }
 
-func handleConnection(conn net.Conn, appConfig models.AppConfig) {
-	request := make([]byte, 4096)
+func handleConnection(conn net.Conn, appConfig *models.AppConfig) {
 	bindSuccessful := false
-	connectId, _ := uuid.NewRandom()
+	connectID, _ := uuid.NewRandom()
 
-	log.Printf("CID: %s, new connection, waiting for data.\n", connectId)
+	log.Printf("CID: %s, new connection, waiting for data.\n", connectID)
 	for {
 		// Wait 30s for data
 		conn.SetReadDeadline(time.Now().Add(30 * time.Second))
-		_, err := conn.Read(request)
 
+		// Read and decode packet
+		packet, err := ber.ReadPacket(conn)
 		if err != nil {
 			if err != io.EOF {
 				log.Println("Failed to read request", err)
@@ -84,11 +84,10 @@ func handleConnection(conn net.Conn, appConfig models.AppConfig) {
 			return
 		}
 
-		p := ber.DecodePacket(request)
-		if handlePacket(conn, p, connectId, &bindSuccessful, appConfig) {
+		if handlePacket(conn, packet, connectID, &bindSuccessful, appConfig) {
 			break
 		}
 	}
 
-	log.Printf("CID: %s, connection closed.\n", connectId)
+	log.Printf("CID: %s, connection closed.\n", connectID)
 }

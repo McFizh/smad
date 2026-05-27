@@ -1,4 +1,4 @@
-FROM golang:1.25 AS builder
+FROM golang:1.26.3 AS builder
 
 WORKDIR /app
 COPY go.mod go.sum ./
@@ -9,7 +9,7 @@ COPY ldap/*.go ./ldap/
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o smad
 
-FROM alpine:3.23
+FROM alpine:3.23.4
 WORKDIR /app
 RUN apk update && apk upgrade && addgroup -S smadgrp && adduser -S smadusr -G smadgrp
 COPY --from=builder /app/smad /app/

@@ -48,6 +48,6 @@ func main() {
 			continue
 		}
 
-		go handleConnection(conn, appConfig)
+		go handleConnection(conn, &appConfig)
 	}
 }

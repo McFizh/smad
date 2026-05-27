@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"testing"
 
-	ber "github.com/go-asn1-ber/asn1-ber"
 	"smad/internal/mocks"
 	"smad/models"
+
+	ber "github.com/go-asn1-ber/asn1-ber"
 )
 
 // Helper function to create a proper LDAP message packet containing a bind request
@@ -15,8 +16,8 @@ func createLDAPMessageWithBindRequest(username, password string, msgNum uint8) *
 	mainPacket := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ber.TagSequence, nil, "")
 
 	// Add message ID
-	msgIdPacket := ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int(msgNum), "")
-	mainPacket.AppendChild(msgIdPacket)
+	msgIDPacket := ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int(msgNum), "")
+	mainPacket.AppendChild(msgIDPacket)
 
 	// Create bind request packet (this is what HandleBindRequest expects)
 	bindReq := ber.Encode(ber.ClassApplication, ber.TypeConstructed, 0, nil, "")

@@ -12,6 +12,12 @@ import (
 	ber "github.com/go-asn1-ber/asn1-ber"
 )
 
+const (
+	domainOK       uint8 = 0
+	domainInvalid  uint8 = 1
+	domainMismatch uint8 = 2
+)
+
 func addEndOfSearchPkg(rsp *ber.Packet, statusCode int, errorMessage string) {
 	// Create end of search result packet
 	searchRspPacket := ber.Encode(ber.ClassApplication, ber.TypeConstructed, 0x05, nil, "")
@@ -40,7 +46,7 @@ func testDomain(baseObject, domain string) uint8 {
 	domainParts := strings.Split(domain, ".")
 	slices.Reverse(domainParts)
 	if len(domainParts) < 2 {
-		return 1
+		return domainInvalid
 	}
 
 	baseObjectParts := strings.Split(baseObject, ",")
@@ -55,15 +61,15 @@ func testDomain(baseObject, domain string) uint8 {
 
 		if dIdx >= len(domainParts) || part[3:] != domainParts[dIdx] {
 			if dIdx < 2 {
-				return 1
+				return domainInvalid
 			}
-			return 2
+			return domainMismatch
 		}
 
 		dIdx++
 	}
 
-	return 0
+	return domainOK
 }
 
 func createAttributePkg(p *ber.Packet, attrType string, values []string) {
@@ -189,9 +195,9 @@ func filterObjects(rawData []models.LdapElement, filters *ber.Packet) []models.L
 	if len(queryFilters) == 0 {
 		if isAndFilter {
 			return rawData
-		} else {
-			return filteredElements
 		}
+
+		return filteredElements
 	}
 
 	// Run filters
@@ -236,19 +242,25 @@ func HandleSearchRequest(conn net.Conn, p *ber.Packet, msgNum uint8, bindSuccess
 
 	if !bindSuccessful {
 		addEndOfSearchPkg(eosp, 1, "000004DC: LdapErr: DSID-0C090CF4, comment: In order to perform this operation a successful bind must be completed on the connection., data 0, v4563")
-		conn.Write(eosp.Bytes())
+		_, err := conn.Write(eosp.Bytes())
+		if err != nil {
+			log.Println("Failed to write response", err)
+		}
 		return
 	}
 
 	// Make sure domain components in base query match the configuration
 	tval := testDomain(fmt.Sprintf("%v", p.Children[0].Value), config.Configuration.Domain)
-	if tval > 0 {
-		if tval == 1 {
+	if tval != domainOK {
+		if tval == domainInvalid {
 			addEndOfSearchPkg(eosp, 10, "0000202B: RefErr: DSID-0310084A, data 0, 1 access points")
 		} else {
 			addEndOfSearchPkg(eosp, 32, "0000208D: NameErr: DSID-0310028C, problem 2001 (NO_OBJECT), data 0, best match of:")
 		}
-		conn.Write(eosp.Bytes())
+		_, err := conn.Write(eosp.Bytes())
+		if err != nil {
+			log.Println("Failed to write response", err)
+		}
 		return
 	}
 
@@ -280,7 +292,10 @@ func HandleSearchRequest(conn net.Conn, p *ber.Packet, msgNum uint8, bindSuccess
 		// Attach attributes to response, and finally send the response package
 		sREPkg.AppendChild(attrPkg)
 		rspX.AppendChild(sREPkg)
-		conn.Write(rspX.Bytes())
+		_, err := conn.Write(rspX.Bytes())
+		if err != nil {
+			log.Println("Failed to write response", err)
+		}
 	}
 
 	/*
@@ -297,5 +312,8 @@ func HandleSearchRequest(conn net.Conn, p *ber.Packet, msgNum uint8, bindSuccess
 	*/
 
 	addEndOfSearchPkg(eosp, 0, "")
-	conn.Write(eosp.Bytes())
+	_, err := conn.Write(eosp.Bytes())
+	if err != nil {
+		log.Println("Failed to write response", err)
+	}
 }

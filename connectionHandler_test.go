@@ -2,11 +2,12 @@ package main
 
 import (
 	"bytes"
-	ber "github.com/go-asn1-ber/asn1-ber"
-	"github.com/google/uuid"
 	"smad/internal/mocks"
 	"smad/models"
 	"testing"
+
+	ber "github.com/go-asn1-ber/asn1-ber"
+	"github.com/google/uuid"
 )
 
 // Helper function to create a mock packet for testing
@@ -42,7 +43,7 @@ func createMockPacket(msgNum uint8, operationTag ber.Tag, hasTwoChildren bool) *
 func TestHandlePacketBindRequest(t *testing.T) {
 	// Create mock connection
 	conn := mocks.NewMockConn()
-	connectId, _ := uuid.NewRandom()
+	connectID, _ := uuid.NewRandom()
 	bindSuccessful := false
 
 	// Create test configuration
@@ -60,7 +61,7 @@ func TestHandlePacketBindRequest(t *testing.T) {
 	packet := createMockPacket(1, 0, true) // Tag 0 = Bind Request
 
 	// Test that handlePacket doesn't close connection for bind request
-	closeConnection := handlePacket(conn, packet, connectId, &bindSuccessful, appConfig)
+	closeConnection := handlePacket(conn, packet, connectID, &bindSuccessful, &appConfig)
 
 	if closeConnection {
 		t.Error("handlePacket should not close connection for bind request")
@@ -73,7 +74,7 @@ func TestHandlePacketBindRequest(t *testing.T) {
 func TestHandlePacketUnbindRequest(t *testing.T) {
 	// Create mock connection
 	conn := mocks.NewMockConn()
-	connectId, _ := uuid.NewRandom()
+	connectID, _ := uuid.NewRandom()
 	bindSuccessful := true
 
 	// Create test configuration
@@ -83,7 +84,7 @@ func TestHandlePacketUnbindRequest(t *testing.T) {
 	packet := createMockPacket(2, 2, true) // Tag 2 = Unbind Request
 
 	// Test that handlePacket closes connection for unbind request
-	closeConnection := handlePacket(conn, packet, connectId, &bindSuccessful, appConfig)
+	closeConnection := handlePacket(conn, packet, connectID, &bindSuccessful, &appConfig)
 
 	if !closeConnection {
 		t.Error("handlePacket should close connection for unbind request")
@@ -97,7 +98,7 @@ func TestHandlePacketUnbindRequest(t *testing.T) {
 func TestHandlePacketSearchRequest(t *testing.T) {
 	// Create mock connection
 	conn := mocks.NewMockConn()
-	connectId, _ := uuid.NewRandom()
+	connectID, _ := uuid.NewRandom()
 	bindSuccessful := true
 
 	// Create test configuration
@@ -113,7 +114,7 @@ func TestHandlePacketSearchRequest(t *testing.T) {
 	packet := createMockPacket(3, 3, true) // Tag 3 = Search Request
 
 	// Test that handlePacket doesn't close connection for search request
-	closeConnection := handlePacket(conn, packet, connectId, &bindSuccessful, appConfig)
+	closeConnection := handlePacket(conn, packet, connectID, &bindSuccessful, &appConfig)
 
 	if closeConnection {
 		t.Error("handlePacket should not close connection for search request")
@@ -126,7 +127,7 @@ func TestHandlePacketSearchRequest(t *testing.T) {
 func TestHandlePacketDeleteRequest(t *testing.T) {
 	// Create mock connection
 	conn := mocks.NewMockConn()
-	connectId, _ := uuid.NewRandom()
+	connectID, _ := uuid.NewRandom()
 	bindSuccessful := true
 
 	// Create test configuration
@@ -142,7 +143,7 @@ func TestHandlePacketDeleteRequest(t *testing.T) {
 	packet := createMockPacket(4, 10, true) // Tag 10 = Delete Request
 
 	// Test that handlePacket doesn't close connection for delete request
-	closeConnection := handlePacket(conn, packet, connectId, &bindSuccessful, appConfig)
+	closeConnection := handlePacket(conn, packet, connectID, &bindSuccessful, &appConfig)
 
 	if closeConnection {
 		t.Error("handlePacket should not close connection for delete request")
@@ -155,7 +156,7 @@ func TestHandlePacketDeleteRequest(t *testing.T) {
 func TestHandlePacketUnknownPacket(t *testing.T) {
 	// Create mock connection
 	conn := mocks.NewMockConn()
-	connectId, _ := uuid.NewRandom()
+	connectID, _ := uuid.NewRandom()
 	bindSuccessful := false
 
 	// Create test configuration
@@ -165,7 +166,7 @@ func TestHandlePacketUnknownPacket(t *testing.T) {
 	packet := createMockPacket(5, 0, false) // Only one child
 
 	// Test that handlePacket doesn't close connection for unknown packet
-	closeConnection := handlePacket(conn, packet, connectId, &bindSuccessful, appConfig)
+	closeConnection := handlePacket(conn, packet, connectID, &bindSuccessful, &appConfig)
 
 	if closeConnection {
 		t.Error("handlePacket should not close connection for unknown packet")
@@ -175,7 +176,7 @@ func TestHandlePacketUnknownPacket(t *testing.T) {
 func TestHandlePacketUnsupportedOperation(t *testing.T) {
 	// Create mock connection
 	conn := mocks.NewMockConn()
-	connectId, _ := uuid.NewRandom()
+	connectID, _ := uuid.NewRandom()
 	bindSuccessful := false
 
 	// Create test configuration
@@ -190,7 +191,7 @@ func TestHandlePacketUnsupportedOperation(t *testing.T) {
 	}
 
 	// Test that handlePacket doesn't close connection for unsupported operation
-	closeConnection := handlePacket(conn, packet, connectId, &bindSuccessful, appConfig)
+	closeConnection := handlePacket(conn, packet, connectID, &bindSuccessful, &appConfig)
 
 	if closeConnection {
 		t.Error("handlePacket should not close connection for unsupported operation")

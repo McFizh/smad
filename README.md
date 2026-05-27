@@ -75,7 +75,7 @@ If you get the following error to logs: 'tls: bad record MAC', remember to allow
 
 ## Running project locally
 
-Make sure you have recent go (min: 1.24) installed. Copy config.example.json to config.json and modify it to suit your needs, then:
+Make sure you have recent go (min: 1.26) installed. Copy config.example.json to config.json and modify it to suit your needs, then:
 
 `go run *.go`
 

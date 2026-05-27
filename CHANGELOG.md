@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0] - 2026-05-25
+
+- Updated go from 1.25 to 1.26.3
+- Pinned alpine version for more reproducible builds
+- Added reject packet to delete method stub
+- Connection handler should no longer silently drop large packages
+
 ## [0.1.7] - 2025-12-30
 
 - Fixed regression with AND and unknown attributes (system should ignore them, not fail on them)
